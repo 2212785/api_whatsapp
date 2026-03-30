@@ -214,3 +214,4 @@ onValue(ref(db, "config/projeto_ativo"), async (snap) => {
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`🚀 Elite Bot Rodando na porta ${PORT}`));
+// fim do arquivo atualizado
