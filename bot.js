@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
+const cors = require('cors');
 const { initializeApp } = require("firebase/app");
 const { getDatabase, ref, get, onValue } = require("firebase/database");
 
@@ -13,6 +14,7 @@ console.log("--------------------------------------------------");
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 const META_TOKEN = process.env.META_TOKEN; 
 
@@ -38,12 +40,12 @@ let escolaGlobal = "";
 const mensagensProcessadas = new Set();
 
 // ===============================
-// 📚 CENTRAL DE RESPOSTAS ELITE
+// 📚 CENTRAL DE RESPOSTAS ELITE (VARIÁVEL {criança} APLICADA)
 // ===============================
 const respostasElite = {
-    formando: (nome) => `Maravilha, ${nome}! 😊 Como você é o formando, as fotos já estão separadas para você conhecer.\n\nEste atendimento é automatizado.\n\n👇 *CLIQUE AQUI PARA AGENDAR SUA VISITA!* \nhttps://2212785.github.io/Agendamentos`,
+    formando: (criança) => `Maravilha, ${criança}! 😊 Como você é o formando, as fotos já estão separadas para você conhecer.\n\nEste atendimento é automatizado.\n\n👇 *CLIQUE AQUI PARA AGENDAR SUA VISITA!* \nhttps://2212785.github.io/Agendamentos`,
     
-    responsavel: (nome) => `Entendido! 😊 Como você é o responsável pelo(a) ${nome}, informamos que o material já está pronto.\n\nEste é um contato automático (Atendemos até as 20:30h).\n\n👇 *CLIQUE AQUI PARA AGENDAR SUA VISITA!* \nhttps://2212785.github.io/Agendamentos`,
+    responsavel: (criança) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material já está pronto.\n\nEste é um contato automático (Atendemos até as 20:30h).\n\n👇 *CLIQUE AQUI PARA AGENDAR SUA VISITA!* \nhttps://2212785.github.io/Agendamentos`,
     
     duvida_quem: (escola) => `Olá 😊\n\nSomos da equipe responsável pelo atendimento automatizado das fotos de formatura da Escola ${escola}.\n\nEste primeiro contato é automático para identificação.\n\nCaso tenha interesse, um representante poderá esclarecer todos os detalhes pessoalmente durante a visita.`,
     
@@ -57,22 +59,21 @@ const respostasElite = {
     
     duvida_obrigatorio: () => `Sim 😊\n\nEsta resposta ajuda a identificarmos corretamente se falamos com a pessoa ou responsável.\n\nApós isso, um representante poderá dar continuidade com mais informações durante a visita.`,
     
-    duvida_identificacao: (nome) => `Para prosseguirmos 😊\n\nPor favor, responda uma das opções abaixo:\n\n1. Sou o(a) ${nome}\n2. Sou o responsável\n3. Não conheço\n\nEste atendimento é automatizado e servirá apenas para identificação inicial.`,
+    duvida_identificacao: (criança) => `Para prosseguirmos 😊\n\nPor favor, responda uma das opções abaixo:\n\n1. Sou o(a) ${criança}\n2. Sou o responsável\n3. Não conheço\n\nEste atendimento é automatizado e servirá apenas para identificação inicial.`,
     
     desculpas: () => `Obrigado pelo retorno 👍\n\nVamos registrar e corrigir nosso contato.\n\nPedimos desculpas pelo inconveniente e agradecemos sua atenção 😊`,
     
-    // RESPOSTA DE ENCERRAMENTO (MELHORADA)
     remover: () => `Entendido 👍\n\nVamos registrar seu desinteresse e remover seu número da nossa lista de contatos.\n\nPedimos desculpas pelo incômodo e agradecemos sua atenção 😊`,
     
-    depois: () => `Sem problemas 😊\n\nFique à vontade para responder quando puder.\n\nEstamos disponíveis e, após sua resposta, um representante poderá te atender pessoalmente na visita.`,
+    depois: () => `Sem problemas 😊\n\nFique à vontade para responder quando puder.`,
     
-    humano: () => `Este primeiro atendimento é realizado de forma automatizada 😊\n\nApós sua confirmação, um representante entrará em contato e poderá te atender pessoalmente durante a visita para esclarecer todas as dúvidas.`,
+    humano: () => `Este primeiro atendimento é realizado de forma automatizada 😊\n\nApós sua confirmação, um representante entrará em contato.`,
     
-    seguranca: (escola) => `Sim, é confiável! 😊\n\nEste é um atendimento referente às fotos de formatura da Escola ${escola}.\n\nO primeiro contato é automatizado para organização das respostas.\n\nO representante responsável fará o atendimento completo e presencial durante a visita.`,
-
-    audio: () => `Olá! 🤖 Como este atendimento é 100% automatizado, eu **não consigo ouvir áudios**.\n\nPor favor, utilize o link para agendar sua visita:\n👉 https://2212785.github.io/Agendamentos`,
-
-    fallback: () => `Olá! 😊 Para seguirmos com o atendimento das fotos, por favor, responda com uma das opções:\n\n1️⃣ Sim, sou o formando.\n2️⃣ Sim, sou o responsável.\n3️⃣ Não conheço.\n\nOu agende sua visita direto aqui:\n👉 https://2212785.github.io/Agendamentos`
+    seguranca: (escola) => `Sim, é confiável! 😊 Este é um atendimento oficial da formatura da Escola ${escola}.`,
+    
+    audio: () => `Olá! 🤖 Como este atendimento é 100% automatizado, eu **não consigo ouvir áudios**. Por favor, use o link para agendar sua visita:\n👉 https://2212785.github.io/Agendamentos`,
+    
+    fallback: () => `Olá! 😊 Para seguirmos, por favor, responda com:\n1️⃣ Sim, sou o formando\n2️⃣ Sim, sou o responsável\n3️⃣ Não conheço\n\nOu agende aqui: https://2212785.github.io/Agendamentos`
 };
 
 // ===============================
@@ -87,9 +88,9 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
             data = { messaging_product: "whatsapp", to: to, type: "text", text: { body: conteudo } };
             textoParaFirebase = conteudo;
         } else if (tipo === "template") {
-            const nomeFinal = conteudo.nome || "Cliente";
+            const nomeFinal = conteudo.criança || "Cliente";
             const escolaFinal = conteudo.escola || escolaGlobal || "sua escola";
-            textoParaFirebase = `[TEMPLATE: inicio_contato] Olá ${nomeFinal}, fotos da escola ${escolaFinal} prontas.`;
+            textoParaFirebase = `[TEMPLATE: inicio_contato] Olá ${nomeFinal}, fotos prontas.`;
             data = {
                 messaging_product: "whatsapp", to: to, type: "template",
                 template: {
@@ -107,11 +108,25 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
         await axios.post(`https://agenda-album-de-formatura-default-rtdb.firebaseio.com/respostas/${numeroLimpo}.json`, {
             mensagem: textoParaFirebase, tipo: "BOT", data: new Date().toLocaleString('pt-BR')
         });
-
-    } catch (err) {
-        console.error(`❌ ERRO AO ENVIAR PARA ${to}:`, err.message);
-    }
+    } catch (err) { console.error(`❌ ERRO AO ENVIAR:`, err.message); }
 }
+
+// ===============================
+// 🚀 ROTA DE DISPARO (Variável {criança} mapeada)
+// ===============================
+app.post('/disparar-template', async (req, res) => {
+    const { telefone, nome_formando, escola } = req.body;
+    // nome_formando vindo do Dashboard é mapeado para criança aqui
+    const criança = nome_formando; 
+
+    if (!telefone || !criança) return res.status(400).send({ error: "Dados incompletos" });
+
+    try {
+        console.log(`📡 Comando recebido para: ${criança} (${telefone})`);
+        await enviarMensagemMeta(telefone, { criança: criança, escola: escola || escolaGlobal }, "template");
+        res.status(200).send({ success: true });
+    } catch (error) { res.status(500).send({ error: "Erro no disparo" }); }
+});
 
 // ===============================
 // 🤖 PROCESSAR RESPOSTAS
@@ -120,76 +135,57 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
     const txt = (texto || "").toLowerCase().trim();
     const numeroLimpo = from.replace(/\D/g, "");
 
-    let nomeCliente = "Mariana Maria"; 
-    let escolaCliente = escolaGlobal || "Conselheiro Rodrigues Alves";
+    let nomeCriança = "Formando"; 
+    let escolaCliente = escolaGlobal || "Escola";
 
     try {
         const snapshot = await get(ref(db, "enviados"));
         if (snapshot.exists()) {
             const lista = snapshot.val();
-            const encontrado = Object.values(lista).find(item => item.telefone.includes(numeroLimpo));
-            if (encontrado) {
-                nomeCliente = encontrado.nome;
-                escolaCliente = encontrado.escola || escolaCliente;
+            const encontrado = Object.values(lista).find(item => item.telefone && item.telefone.includes(numeroLimpo));
+            if (encontrado) { 
+                // Busca a variável criança no banco de dados
+                nomeCriança = encontrado.criança || encontrado.nome || encontrado.nome_formando || "Formando"; 
+                escolaCliente = encontrado.escola || escolaGlobal || "Escola"; 
             }
         }
-    } catch (e) {}
+    } catch (e) { console.error("Erro ao ler Firebase"); }
 
     let respostaFinal = "";
-
     if (msgType === "audio") {
         respostaFinal = respostasElite.audio();
     } else {
-        // --- PRIORIDADE 1: RECUSA / DESINTERESSE ---
-        if (txt.includes("não quero") || txt.includes("nao quero") || txt.includes("sem interesse") || txt.includes("não tenho interesse") || txt.includes("nao tenho interesse") || txt.includes("já recebi") || txt.includes("ja recebi") || txt.includes("pare") || txt.includes("não me chame")) {
+        if (txt.includes("não quero") || txt.includes("nao quero") || txt.includes("interesse") || txt.includes("recebi") || txt.includes("pare")) {
             respostaFinal = respostasElite.remover();
-        } 
-        // --- PRIORIDADE 2: IDENTIFICAÇÃO DIRETA ---
-        else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
-            respostaFinal = respostasElite.formando(nomeCliente);
-        } else if (txt === "2" || txt.includes("responsavel") || txt.includes("responsável") || txt === "2️⃣") {
-            respostaFinal = respostasElite.responsavel(nomeCliente);
-        } else if (txt === "3" || txt.includes("não conheço") || txt.includes("não conheco") || txt === "3️⃣" || txt.includes("errado")) {
+        } else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
+            respostaFinal = respostasElite.formando(nomeCriança);
+        } else if (txt === "2" || txt.includes("responsavel") || txt === "2️⃣") {
+            respostaFinal = respostasElite.responsavel(nomeCriança);
+        } else if (txt === "3" || txt.includes("não conheço") || txt === "3️⃣") {
             respostaFinal = respostasElite.desculpas();
-        } 
-        // --- PRIORIDADE 3: DÚVIDAS ESPECÍFICAS ---
-        else if (txt.includes("quem") || (txt.includes("onde") && txt.includes("são")) || txt.includes("falando")) {
+        } else if (txt.includes("quem") || txt.includes("falando")) {
             respostaFinal = respostasElite.duvida_quem(escolaCliente);
-        } else if (txt.includes("trata") || txt.includes("que fotos") || txt.includes("chamando") || txt.includes("entendi")) {
-            respostaFinal = respostasElite.duvida_motivo(escolaCliente);
-        } else if (txt.includes("quanto") || txt.includes("preço") || txt.includes("valor") || txt.includes("custa")) {
+        } else if (txt.includes("quanto") || txt.includes("preço")) {
             respostaFinal = respostasElite.duvida_preco();
-        } else if (txt.includes("agendar") || txt.includes("agendo") || txt.includes("marcar")) {
+        } else if (txt.includes("agendar") || txt.includes("agendo")) {
             respostaFinal = respostasElite.duvida_agendamento();
-        } else if (txt.includes("local") || txt.includes("endereço") || txt.includes("onde será")) {
+        } else if (txt.includes("local") || txt.includes("onde será")) {
             respostaFinal = respostasElite.duvida_local();
-        } else if (txt.includes("preciso") || txt.includes("obrigatorio")) {
-            respostaFinal = respostasElite.duvida_obrigatorio();
-        } else if (txt.includes("humano") || txt.includes("atendente") || txt.includes("telefone")) {
-            respostaFinal = respostasElite.humano();
-        } else if (txt.includes("confiavel") || txt.includes("golpe") || txt.includes("oficial")) {
+        } else if (txt.includes("confiavel") || txt.includes("golpe")) {
             respostaFinal = respostasElite.seguranca(escolaCliente);
-        } else if (txt.includes("depois") || txt.includes("posso") || txt.includes("tarde")) {
-            respostaFinal = respostasElite.depois();
-        }
-        // --- FALLBACK: CASO NÃO IDENTIFIQUE NADA ---
-        else {
-            respostaFinal = respostasElite.duvida_identificacao(nomeCliente);
+        } else {
+            respostaFinal = respostasElite.duvida_identificacao(nomeCriança);
         }
     }
 
     await axios.post(`https://agenda-album-de-formatura-default-rtdb.firebaseio.com/respostas/${numeroLimpo}.json`, {
-        mensagem: msgType === "audio" ? "[ÁUDIO ENVIADO]" : texto,
-        tipo: "CLIENTE",
-        data: new Date().toLocaleString('pt-BR')
+        mensagem: msgType === "audio" ? "[ÁUDIO ENVIADO]" : texto, tipo: "CLIENTE", data: new Date().toLocaleString('pt-BR')
     });
 
     return enviarMensagemMeta(from, respostaFinal);
 }
 
-// ===============================
-// 🌐 WEBHOOK E MONITORAMENTO (MANTIDOS)
-// ===============================
+// ... Restante do código de Webhook e Monitoramento mantido ...
 app.get('/webhook', (req, res) => {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -203,9 +199,7 @@ app.post('/webhook', async (req, res) => {
     const msg = changes?.messages?.[0];
     if (msg && !mensagensProcessadas.has(msg.id)) {
         mensagensProcessadas.add(msg.id);
-        const msgType = msg.type;
-        const texto = msg.text?.body || msg.button?.text || msg.interactive?.button_reply?.title;
-        await processarMensagemRecebida(msg.from, texto, msgType);
+        await processarMensagemRecebida(msg.from, msg.text?.body || msg.button?.text, msg.type);
     }
     res.sendStatus(200);
 });
@@ -214,17 +208,8 @@ onValue(ref(db, "config/projeto_ativo"), async (snap) => {
     projId = snap.val();
     if (projId) {
         const snapEscola = await get(ref(db, `projetos/${projId}/escola`));
-        escolaGlobal = snapEscola.val() || "Conselheiro Rodrigues Alves";
-        console.log(`🔄 Monitorando: ${projId} | Escola: ${escolaGlobal}`);
+        escolaGlobal = snapEscola.val() || "Escola";
     }
-});
-
-app.post('/disparar-template', async (req, res) => {
-    const { telefone, nome_formando, escola } = req.body;
-    try {
-        await enviarMensagemMeta(telefone, { nome: nome_formando, escola: escola }, "template");
-        res.status(200).send({ success: true });
-    } catch (e) { res.status(500).send({ error: "Erro disparo" }); }
 });
 
 const PORT = process.env.PORT || 10000;
