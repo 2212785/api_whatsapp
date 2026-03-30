@@ -38,51 +38,38 @@ let escolaGlobal = "";
 const mensagensProcessadas = new Set();
 
 // ===============================
-// 📚 CENTRAL DE RESPOSTAS ELITE (CORRIGIDO)
+// 📚 CENTRAL DE RESPOSTAS ELITE
 // ===============================
 const respostasElite = {
-    // Respostas de Fluxo Principal - MELHORADAS COM CTA EM DESTAQUE
     formando: (nome) => `Maravilha, ${nome}! 😊 Como você é o formando, as fotos já estão separadas para você conhecer.\n\nEste atendimento é automatizado.\n\n👇 *CLIQUE AQUI PARA AGENDAR SUA VISITA!* \nhttps://2212785.github.io/Agendamentos`,
     
     responsavel: (nome) => `Entendido! 😊 Como você é o responsável pelo(a) ${nome}, informamos que o material já está pronto.\n\nEste é um contato automático (Atendemos até as 20:30h).\n\n👇 *CLIQUE AQUI PARA AGENDAR SUA VISITA!* \nhttps://2212785.github.io/Agendamentos`,
     
-    // 1. Quem é você?
     duvida_quem: (escola) => `Olá 😊\n\nSomos da equipe responsável pelo atendimento automatizado das fotos de formatura da Escola ${escola}.\n\nEste primeiro contato é automático para identificação.\n\nCaso tenha interesse, um representante poderá esclarecer todos os detalhes pessoalmente durante a visita.`,
     
-    // 2. Motivo do contato
     duvida_motivo: (escola) => `Estamos entrando em contato referente às fotos de formatura da Escola ${escola} 📸\n\nEste é um atendimento inicial automatizado para identificação.\n\nApós sua confirmação, um representante poderá apresentar todos os detalhes pessoalmente durante a visita.`,
     
-    // 3. Preço
     duvida_preco: () => `Os valores e condições são apresentados diretamente pelo representante durante a visita 😊\n\nEste atendimento inicial é automatizado apenas para identificação e direcionamento.`,
     
-    // 4. Agendamento (CORRIGIDO: Removido vírgula extra)
     duvida_agendamento: () => `Este atendimento é automatizado.\n\n👇 *CLIQUE AQUI PARA AGENDAR SUA VISITA!* \nhttps://2212785.github.io/Agendamentos`,
     
-    // 5. Local
     duvida_local: () => `As informações completas sobre local e funcionamento são apresentadas pelo representante no momento da visita 😊\n\nEste primeiro contato é apenas automatizado para identificação.`,
     
-    // 6. Precisa responder?
     duvida_obrigatorio: () => `Sim 😊\n\nEsta resposta ajuda a identificarmos corretamente se falamos com a pessoa ou responsável.\n\nApós isso, um representante poderá dar continuidade com mais informações durante a visita.`,
     
-    // 7. Fora das opções (Repetição de identificação)
     duvida_identificacao: (nome) => `Para prosseguirmos 😊\n\nPor favor, responda uma das opções abaixo:\n\n1. Sou o(a) ${nome}\n2. Sou o responsável\n3. Não conheço\n\nEste atendimento é automatizado e servirá apenas para identificação inicial.`,
     
-    // 8. Não conhece / Errado
     desculpas: () => `Obrigado pelo retorno 👍\n\nVamos registrar e corrigir nosso contato.\n\nPedimos desculpas pelo inconveniente e agradecemos sua atenção 😊`,
     
-    // 9. Irritação / Não quer
-    remover: () => `Entendido 👍\n\nVamos remover seu número da nossa lista.\n\nPedimos desculpas pelo incômodo e agradecemos sua atenção.`,
+    // RESPOSTA DE ENCERRAMENTO (MELHORADA)
+    remover: () => `Entendido 👍\n\nVamos registrar seu desinteresse e remover seu número da nossa lista de contatos.\n\nPedimos desculpas pelo incômodo e agradecemos sua atenção 😊`,
     
-    // 10. Responder depois
     depois: () => `Sem problemas 😊\n\nFique à vontade para responder quando puder.\n\nEstamos disponíveis e, após sua resposta, um representante poderá te atender pessoalmente na visita.`,
     
-    // 11. Contato humano
     humano: () => `Este primeiro atendimento é realizado de forma automatizada 😊\n\nApós sua confirmação, um representante entrará em contato e poderá te atender pessoalmente durante a visita para esclarecer todas as dúvidas.`,
     
-    // 12. Golpe / Confiança
     seguranca: (escola) => `Sim, é confiável! 😊\n\nEste é um atendimento referente às fotos de formatura da Escola ${escola}.\n\nO primeiro contato é automatizado para organização das respostas.\n\nO representante responsável fará o atendimento completo e presencial durante a visita.`,
 
-    // Áudio detectado
     audio: () => `Olá! 🤖 Como este atendimento é 100% automatizado, eu **não consigo ouvir áudios**.\n\nPor favor, utilize o link para agendar sua visita:\n👉 https://2212785.github.io/Agendamentos`,
 
     fallback: () => `Olá! 😊 Para seguirmos com o atendimento das fotos, por favor, responda com uma das opções:\n\n1️⃣ Sim, sou o formando.\n2️⃣ Sim, sou o responsável.\n3️⃣ Não conheço.\n\nOu agende sua visita direto aqui:\n👉 https://2212785.github.io/Agendamentos`
@@ -153,35 +140,40 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
     if (msgType === "audio") {
         respostaFinal = respostasElite.audio();
     } else {
-        if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
+        // --- PRIORIDADE 1: RECUSA / DESINTERESSE ---
+        if (txt.includes("não quero") || txt.includes("nao quero") || txt.includes("sem interesse") || txt.includes("não tenho interesse") || txt.includes("nao tenho interesse") || txt.includes("já recebi") || txt.includes("ja recebi") || txt.includes("pare") || txt.includes("não me chame")) {
+            respostaFinal = respostasElite.remover();
+        } 
+        // --- PRIORIDADE 2: IDENTIFICAÇÃO DIRETA ---
+        else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
             respostaFinal = respostasElite.formando(nomeCliente);
         } else if (txt === "2" || txt.includes("responsavel") || txt.includes("responsável") || txt === "2️⃣") {
             respostaFinal = respostasElite.responsavel(nomeCliente);
         } else if (txt === "3" || txt.includes("não conheço") || txt.includes("não conheco") || txt === "3️⃣" || txt.includes("errado")) {
             respostaFinal = respostasElite.desculpas();
-        } else if (txt.includes("quem") || txt.includes("onde") && txt.includes("são") || txt.includes("falando")) {
+        } 
+        // --- PRIORIDADE 3: DÚVIDAS ESPECÍFICAS ---
+        else if (txt.includes("quem") || (txt.includes("onde") && txt.includes("são")) || txt.includes("falando")) {
             respostaFinal = respostasElite.duvida_quem(escolaCliente);
         } else if (txt.includes("trata") || txt.includes("que fotos") || txt.includes("chamando") || txt.includes("entendi")) {
             respostaFinal = respostasElite.duvida_motivo(escolaCliente);
         } else if (txt.includes("quanto") || txt.includes("preço") || txt.includes("valor") || txt.includes("custa")) {
             respostaFinal = respostasElite.duvida_preco();
-        } else if (txt.includes("agendar") || txt.includes("visita") || txt.includes("agendo")) {
+        } else if (txt.includes("agendar") || txt.includes("agendo") || txt.includes("marcar")) {
             respostaFinal = respostasElite.duvida_agendamento();
         } else if (txt.includes("local") || txt.includes("endereço") || txt.includes("onde será")) {
             respostaFinal = respostasElite.duvida_local();
-        } else if (txt.includes("preciso") || txt.includes("obrigatorio") || txt.includes("escolher")) {
+        } else if (txt.includes("preciso") || txt.includes("obrigatorio")) {
             respostaFinal = respostasElite.duvida_obrigatorio();
-        } else if (txt.includes("oi") || txt.includes("pode falar") || txt.includes("quem é")) {
-            respostaFinal = respostasElite.duvida_identificacao(nomeCliente);
-        } else if (txt.includes("não quero") || txt.includes("pare") || txt.includes("não me chame")) {
-            respostaFinal = respostasElite.remover();
-        } else if (txt.includes("depois") || txt.includes("posso") || txt.includes("tarde")) {
-            respostaFinal = respostasElite.depois();
         } else if (txt.includes("humano") || txt.includes("atendente") || txt.includes("telefone")) {
             respostaFinal = respostasElite.humano();
         } else if (txt.includes("confiavel") || txt.includes("golpe") || txt.includes("oficial")) {
             respostaFinal = respostasElite.seguranca(escolaCliente);
-        } else {
+        } else if (txt.includes("depois") || txt.includes("posso") || txt.includes("tarde")) {
+            respostaFinal = respostasElite.depois();
+        }
+        // --- FALLBACK: CASO NÃO IDENTIFIQUE NADA ---
+        else {
             respostaFinal = respostasElite.duvida_identificacao(nomeCliente);
         }
     }
