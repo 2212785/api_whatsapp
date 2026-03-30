@@ -1,0 +1,15 @@
+2026/03/26-09:27:43.799 1334 Reusing MANIFEST C:\Users\evani\Desktop\Whatsapp\Bot_zap\bot-whatsapp\tokens\bot-formatura\Default\Local Storage\leveldb/MANIFEST-000001
+2026/03/26-09:27:43.805 1334 Recovering log #260
+2026/03/26-09:27:43.812 1334 Reusing old log C:\Users\evani\Desktop\Whatsapp\Bot_zap\bot-whatsapp\tokens\bot-formatura\Default\Local Storage\leveldb/000260.log 
+2026/03/26-09:33:31.752 4338 Level-0 table #264: started
+2026/03/26-09:33:31.762 4338 Level-0 table #264: 18752 bytes OK
+2026/03/26-09:33:31.767 4338 Delete type=0 #260
+2026/03/26-09:33:31.767 4338 Compacting 4@0 + 1@1 files
+2026/03/26-09:33:31.775 4338 Generated table #265@0: 395 keys, 20363 bytes
+2026/03/26-09:33:31.775 4338 Compacted 4@0 + 1@1 files => 20363 bytes
+2026/03/26-09:33:31.776 4338 compacted to: files[ 0 1 1 0 0 0 0 ]
+2026/03/26-09:33:31.778 4338 Delete type=2 #255
+2026/03/26-09:33:31.778 4338 Delete type=2 #257
+2026/03/26-09:33:31.778 4338 Delete type=2 #259
+2026/03/26-09:33:31.779 4338 Delete type=2 #261
+2026/03/26-09:33:31.779 4338 Delete type=2 #264
