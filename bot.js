@@ -129,6 +129,31 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
     }
 }
 
+// ===============================================
+// 🚀 ROTA DE COMANDO PARA DISPARO (NOVA)
+// ===============================================
+app.post('/disparar-template', async (req, res) => {
+    const { telefone, nome_formando, escola: escolaMsg } = req.body;
+
+    if (!telefone || !nome_formando) {
+        return res.status(400).send({ error: "Telefone e Nome são obrigatórios" });
+    }
+
+    try {
+        console.log(`📡 Comando Cloud recebido para: ${nome_formando} (${telefone})`);
+        
+        // Aciona a função que já existe no seu código
+        await enviarMensagemMeta(telefone, { 
+            nome: nome_formando, 
+            escola: escolaMsg || escola 
+        }, "template");
+
+        res.status(200).send({ success: true });
+    } catch (error) {
+        res.status(500).send({ error: "Erro no processamento do disparo" });
+    }
+});
+
 // ===============================
 // 🤖 PROCESSAR RESPOSTAS
 // ===============================
