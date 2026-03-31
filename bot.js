@@ -3,7 +3,7 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const { initializeApp } = require("firebase/app");
-const { getDatabase, ref, get, onValue } = require("firebase/database");
+const { getDatabase, ref, get, onValue, update, set } = require("firebase/database");
 
 // ===============================
 // 🛡️ VERIFICAÇÃO DE AMBIENTE
@@ -105,7 +105,7 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
         });
 
         const numeroLimpo = to.replace(/\D/g, "");
-        await axios.post(`https://agenda-album-de-formatura-default-rtdb.firebaseio.com/respostas/${numeroLimpo}.json`, {
+        await set(ref(db, `respostas/${numeroLimpo}/${Date.now()}`), {
             mensagem: textoParaFirebase, tipo: "BOT", data: new Date().toLocaleString('pt-BR')
         });
     } catch (err) { console.error(`❌ ERRO AO ENVIAR:`, err.message); }
@@ -116,7 +116,6 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
 // ===============================
 app.post('/disparar-template', async (req, res) => {
     const { telefone, nome_formando, escola } = req.body;
-    // nome_formando vindo do Dashboard é mapeado para criança aqui
     const criança = nome_formando; 
 
     if (!telefone || !criança) return res.status(400).send({ error: "Dados incompletos" });
@@ -144,7 +143,6 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
             const lista = snapshot.val();
             const encontrado = Object.values(lista).find(item => item.telefone && item.telefone.includes(numeroLimpo));
             if (encontrado) { 
-                // Busca a variável criança no banco de dados
                 nomeCriança = encontrado.criança || encontrado.nome || encontrado.nome_formando || "Formando"; 
                 escolaCliente = encontrado.escola || escolaGlobal || "Escola"; 
             }
@@ -176,16 +174,18 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
         } else {
             respostaFinal = respostasElite.duvida_identificacao(nomeCriança);
         }
-    }//salvar
+    }
 
-    await axios.post(`https://agenda-album-de-formatura-default-rtdb.firebaseio.com/respostas/${numeroLimpo}.json`, {
+    await set(ref(db, `respostas/${numeroLimpo}/${Date.now()}`), {
         mensagem: msgType === "audio" ? "[ÁUDIO ENVIADO]" : texto, tipo: "CLIENTE", data: new Date().toLocaleString('pt-BR')
     });
 
     return enviarMensagemMeta(from, respostaFinal);
 }
 
-// ... Restante do código de Webhook e Monitoramento mantido ...
+// ===============================
+// 🌐 WEBHOOK & CONFIGURAÇÃO
+// ===============================
 app.get('/webhook', (req, res) => {
     const mode = req.query['hub.mode'];
     const token = req.query['hub.verify_token'];
@@ -212,6 +212,15 @@ onValue(ref(db, "config/projeto_ativo"), async (snap) => {
     }
 });
 
+// 🔥 HEARTBEAT PARA O LED DE STATUS (ONLINE/OFFLINE)
+setInterval(async () => {
+    if (projId) {
+        await update(ref(db, `projetos/${projId}/bot`), {
+            lastPing: Date.now(),
+            status: "online"
+        });
+    }
+}, 30000);
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`🚀 Elite Bot Rodando na porta ${PORT}`));
-// fim do arquivo atualizado
