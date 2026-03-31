@@ -19,8 +19,7 @@ app.use(cors());
 const META_TOKEN = process.env.META_TOKEN; 
 
 if (!META_TOKEN) {
-    console.error("❌ ERRO CRÍTICO: META_TOKEN não definido!");
-    process.exit(1); 
+    console.error("❌ ERRO CRÍTICO: META_TOKEN não definido nas variáveis de ambiente!");
 }
 
 const PHONE_ID = '1090608227463192'; 
@@ -40,7 +39,7 @@ let escolaGlobal = "";
 const mensagensProcessadas = new Set();
 
 // ===============================
-// 📚 CENTRAL DE RESPOSTAS ELITE (VARIÁVEL {criança} APLICADA)
+// 📚 CENTRAL DE RESPOSTAS ELITE
 // ===============================
 const respostasElite = {
     formando: (criança) => `Maravilha, ${criança}! 😊 Como você é o formando, as fotos já estão separadas para você conhecer.\n\nEste atendimento é automatizado.\n\n👇 *CLIQUE AQUI PARA AGENDAR SUA VISITA!* \nhttps://2212785.github.io/Agendamentos`,
@@ -108,23 +107,25 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
         await set(ref(db, `respostas/${numeroLimpo}/${Date.now()}`), {
             mensagem: textoParaFirebase, tipo: "BOT", data: new Date().toLocaleString('pt-BR')
         });
-    } catch (err) { console.error(`❌ ERRO AO ENVIAR:`, err.message); }
+    } catch (err) { 
+        console.error(`❌ ERRO AO ENVIAR PARA ${to}:`, err.response ? err.response.data : err.message); 
+    }
 }
 
 // ===============================
-// 🚀 ROTA DE DISPARO (Variável {criança} mapeada)
+// 🚀 ROTA DE DISPARO
 // ===============================
 app.post('/disparar-template', async (req, res) => {
     const { telefone, nome_formando, escola } = req.body;
-    const criança = nome_formando; 
-
-    if (!telefone || !criança) return res.status(400).send({ error: "Dados incompletos" });
+    if (!telefone || !nome_formando) return res.status(400).send({ error: "Dados incompletos" });
 
     try {
-        console.log(`📡 Comando recebido para: ${criança} (${telefone})`);
-        await enviarMensagemMeta(telefone, { criança: criança, escola: escola || escolaGlobal }, "template");
+        console.log(`📡 Disparo massivo -> Nome: ${nome_formando} | Fone: ${telefone}`);
+        await enviarMensagemMeta(telefone, { criança: nome_formando, escola: escola || escolaGlobal }, "template");
         res.status(200).send({ success: true });
-    } catch (error) { res.status(500).send({ error: "Erro no disparo" }); }
+    } catch (error) { 
+        res.status(500).send({ error: "Erro no disparo massivo" }); 
+    }
 });
 
 // ===============================
@@ -133,7 +134,6 @@ app.post('/disparar-template', async (req, res) => {
 async function processarMensagemRecebida(from, texto, msgType = "text") {
     const txt = (texto || "").toLowerCase().trim();
     const numeroLimpo = from.replace(/\D/g, "");
-
     let nomeCriança = "Formando"; 
     let escolaCliente = escolaGlobal || "Escola";
 
@@ -141,7 +141,7 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
         const snapshot = await get(ref(db, "enviados"));
         if (snapshot.exists()) {
             const lista = snapshot.val();
-            const encontrado = Object.values(lista).find(item => item.telefone && item.telefone.includes(numeroLimpo));
+            const encontrado = Object.values(lista).find(item => item.telefone && item.telefone.replace(/\D/g, "").includes(numeroLimpo));
             if (encontrado) { 
                 nomeCriança = encontrado.criança || encontrado.nome || encontrado.nome_formando || "Formando"; 
                 escolaCliente = encontrado.escola || escolaGlobal || "Escola"; 
@@ -153,7 +153,7 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
     if (msgType === "audio") {
         respostaFinal = respostasElite.audio();
     } else {
-        if (txt.includes("não quero") || txt.includes("nao quero") || txt.includes("interesse") || txt.includes("recebi") || txt.includes("pare")) {
+        if (txt.includes("não quero") || txt.includes("nao quero") || txt.includes("interesse") || txt.includes("remover") || txt.includes("pare")) {
             respostaFinal = respostasElite.remover();
         } else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
             respostaFinal = respostasElite.formando(nomeCriança);
@@ -163,13 +163,13 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
             respostaFinal = respostasElite.desculpas();
         } else if (txt.includes("quem") || txt.includes("falando")) {
             respostaFinal = respostasElite.duvida_quem(escolaCliente);
-        } else if (txt.includes("quanto") || txt.includes("preço")) {
+        } else if (txt.includes("quanto") || txt.includes("preço") || txt.includes("valor")) {
             respostaFinal = respostasElite.duvida_preco();
         } else if (txt.includes("agendar") || txt.includes("agendo")) {
             respostaFinal = respostasElite.duvida_agendamento();
         } else if (txt.includes("local") || txt.includes("onde será")) {
             respostaFinal = respostasElite.duvida_local();
-        } else if (txt.includes("confiavel") || txt.includes("golpe")) {
+        } else if (txt.includes("confiavel") || txt.includes("golpe") || txt.includes("seguro")) {
             respostaFinal = respostasElite.seguranca(escolaCliente);
         } else {
             respostaFinal = respostasElite.duvida_identificacao(nomeCriança);
@@ -180,11 +180,11 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
         mensagem: msgType === "audio" ? "[ÁUDIO ENVIADO]" : texto, tipo: "CLIENTE", data: new Date().toLocaleString('pt-BR')
     });
 
-    return enviarMensagemMeta(from, respostaFinal);
+    await enviarMensagemMeta(from, respostaFinal);
 }
 
 // ===============================
-// 🌐 WEBHOOK & CONFIGURAÇÃO
+// 🌐 WEBHOOK & HEARTBEAT
 // ===============================
 app.get('/webhook', (req, res) => {
     const mode = req.query['hub.mode'];
@@ -212,13 +212,14 @@ onValue(ref(db, "config/projeto_ativo"), async (snap) => {
     }
 });
 
-// 🔥 HEARTBEAT PARA O LED DE STATUS (ONLINE/OFFLINE)
 setInterval(async () => {
     if (projId) {
-        await update(ref(db, `projetos/${projId}/bot`), {
-            lastPing: Date.now(),
-            status: "online"
-        });
+        try {
+            await update(ref(db, `projetos/${projId}/bot`), {
+                lastPing: Date.now(),
+                status: "online"
+            });
+        } catch (err) { console.error("Erro no Heartbeat"); }
     }
 }, 30000);
 
