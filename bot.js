@@ -77,7 +77,7 @@ const respostasElite = {
     
     audio: () => `Olá! 🤖 Como sou um assistente virtual, eu **não consigo ouvir áudios**. \n\nComo estaremos na cidade por *poucos dias*, por favor, use o link para garantir seu horário:` + linkAgendamento,
 
-    remover: () => `Entendido 👍\n\nRegistramos seu desinteresse e removeremos seu número da lista. Pedimos desculpas pelo incômodo 😊` + linkAgendamento,
+    remover: () => `Entendido 👍\n\nPedimos desculpas pelo incômodo. Informamos que vamos excluir seus dados de nosso cadastro imediatamente. Caso mude de ideia e queira conhecer o material, basta realizar o agendamento da visita pelo link abaixo 😊` + avisoTempo + linkAgendamento,
 
     desculpas: () => `Obrigado pelo retorno 👍\n\nVamos registrar e corrigir nosso contato. Pedimos desculpas pelo inconveniente e agradecemos sua atenção 😊`,
 
