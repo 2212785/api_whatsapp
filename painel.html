@@ -3,29 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel Elite - Monitoramento</title>
+    <title>Painel Elite - Monitoramento por Cliente</title>
     <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.5.0/firebase-database-compat.js"></script>
     <style>
-        body { font-family: sans-serif; background: #f0f2f5; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        header { background: #075e54; color: white; padding: 15px; text-align: center; font-weight: bold; }
-        #chat-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 10px; }
-        .msg { max-width: 70%; padding: 10px; border-radius: 10px; margin-bottom: 5px; position: relative; line-height: 1.4; }
-        .CLIENTE { align-self: flex-start; background: white; color: #303030; border: 1px solid #ddd; }
-        .BOT { align-self: flex-end; background: #dcf8c6; color: #303030; }
-        .meta { font-size: 0.7em; margin-top: 5px; display: block; opacity: 0.6; }
-        .phone { font-weight: bold; font-size: 0.8em; display: block; margin-bottom: 3px; color: #075e54; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #e5ddd5; margin: 0; padding: 20px; }
+        header { background: #075e54; color: white; padding: 15px; text-align: center; font-size: 1.2em; font-weight: bold; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        
+        #painel-clientes { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
+        
+        .card-cliente { background: #fff; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); display: flex; flex-direction: column; height: 450px; border: 1px solid #ccc; }
+        .card-header { background: #f0f2f5; padding: 12px; border-bottom: 1px solid #ddd; border-radius: 10px 10px 0 0; font-weight: bold; color: #075e54; display: flex; justify-content: space-between; }
+        
+        .chat-window { flex: 1; overflow-y: auto; padding: 15px; background: #efe7de; display: flex; flex-direction: column; gap: 8px; }
+        
+        .balao { max-width: 85%; padding: 8px 12px; border-radius: 8px; font-size: 0.9em; line-height: 1.4; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .CLIENTE { align-self: flex-start; background: #fff; color: #000; border-bottom-left-radius: 2px; }
+        .BOT { align-self: flex-end; background: #dcf8c6; color: #000; border-bottom-right-radius: 2px; }
+        
+        .hora { font-size: 0.7em; display: block; text-align: right; margin-top: 4px; opacity: 0.6; }
+        .status-tag { font-size: 0.7em; padding: 2px 6px; border-radius: 4px; background: #075e54; color: white; }
     </style>
 </head>
 <body>
 
-<header>📊 Monitoramento de Conversas - Elite Bot</header>
+<header>📊 Monitoramento de Conversas Elite (Separado por Número)</header>
 
-<div id="chat-container">
+<div id="painel-clientes">
     </div>
 
 <script>
-    // Configuração do seu Firebase (Exatamente como no seu bot.js)
     const firebaseConfig = {
         apiKey: "AIzaSyANz1gbAi3PIGwS1-RzOIXF6SUZvS2U0mU",
         databaseURL: "https://agenda-album-de-formatura-default-rtdb.firebaseio.com"
@@ -33,44 +40,56 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+    const container = document.getElementById('painel-clientes');
 
-    const container = document.getElementById('chat-container');
-
-    // Escutar novas mensagens no Firebase
-    db.ref('respostas').limitToLast(50).on('value', (snapshot) => {
-        container.innerHTML = ""; // Limpa para atualizar
-        const dados = snapshot.val();
+    // Escuta o nó principal "respostas"
+    db.ref('respostas').on('value', (snapshot) => {
+        container.innerHTML = ""; 
+        const todosDados = snapshot.val();
         
-        if (!dados) return;
+        if (!todosDados) return;
 
-        // Organizar mensagens por data
-        let mensagensArray = [];
-        Object.keys(dados).forEach(phone => {
-            Object.keys(dados[phone]).forEach(id => {
-                mensagensArray.push({
-                    phone: phone,
-                    ...dados[phone][id],
-                    timestamp: id
-                });
+        // Itera sobre cada número de telefone
+        Object.keys(todosDados).forEach(telefone => {
+            const mensagensDoNumero = todosDados[telefone];
+            
+            // Criar o Card do Cliente
+            const card = document.createElement('div');
+            card.className = 'card-cliente';
+            
+            const header = document.createElement('div');
+            header.className = 'card-header';
+            header.innerHTML = `<span>📱 ${telefone}</span> <span class="status-tag">Ativo</span>`;
+            
+            const window = document.createElement('div');
+            window.className = 'chat-window';
+            
+            // Transformar mensagens em array para ordenar por tempo
+            let msgsArray = Object.keys(mensagensDoNumero).map(id => ({
+                id: id,
+                ...mensagensDoNumero[id]
+            }));
+            
+            msgsArray.sort((a, b) => a.id - b.id);
+
+            // Adicionar cada balão no chat do card
+            msgsArray.forEach(m => {
+                const balao = document.createElement('div');
+                balao.className = `balao ${m.tipo}`;
+                balao.innerHTML = `
+                    ${m.mensagem}
+                    <span class="hora">${m.data || ''}</span>
+                `;
+                window.appendChild(balao);
             });
+
+            card.appendChild(header);
+            card.appendChild(window);
+            container.appendChild(card);
+            
+            // Rolar cada chat para o final
+            window.scrollTop = window.scrollHeight;
         });
-
-        // Ordenar pela mais recente
-        mensagensArray.sort((a, b) => a.timestamp - b.timestamp);
-
-        mensagensArray.forEach(m => {
-            const div = document.createElement('div');
-            div.className = `msg ${m.tipo}`;
-            div.innerHTML = `
-                <span class="phone">📱 ${m.phone}</span>
-                ${m.mensagem}
-                <span class="meta">${m.data}</span>
-            `;
-            container.appendChild(div);
-        });
-
-        // Rolar para o final automaticamente
-        container.scrollTop = container.scrollHeight;
     });
 </script>
 
