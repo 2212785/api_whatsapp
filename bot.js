@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config(); 
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -72,7 +72,7 @@ const respostasElite = {
     
     audio: () => `Olá! 🤖 Como este atendimento é 100% automatizado, eu **não consigo ouvir áudios**. Por favor, use o link para agendar sua visita:\n👉 https://2212785.github.io/Agendamentos`,
     
-    fallback: () => `Olá! 😊 Para seguirmos, por favor, responda com:\n1️⃣ Sim, sou o formando\n2️⃣ Sim, sou o responsável\n3️⃣ Não conheço\n\nOu agende aqui: https://2212785.github.io/Agendamentos`
+    fallback: () => `Olá! 😊 Como este atendimento é automatizado, não consegui entender sua dúvida específica agora.\n\nMas fique tranquilo(a): todos os detalhes e dúvidas técnicas serão esclarecidos pelo representante durante a **visita (totalmente sem compromisso)**.` + avisoTempo + linkAgendamento
 };
 
 // ===============================
