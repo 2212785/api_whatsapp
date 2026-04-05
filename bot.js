@@ -33,15 +33,17 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getDatabase(firebaseApp);
 
-let escolaGlobal = "";
-
 const mensagensProcessadas = new Set();
 
 // ===============================
 // 📚 CENTRAL DE RESPOSTAS ELITE
 // ===============================
-// Função corrigida para aceitar o ID do projeto específico
-const obterLink = (idProjeto) => `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):* \nhttps://2212785.github.io/Agendamentos/?id=${idProjeto || 'geral'}`;
+// Função que gera o link dinâmico baseado no projeto em que o aluno foi cadastrado
+const obterLink = (idProjeto) => {
+    const idLimpo = idProjeto || 'guaratingueta-guilherme'; // Backup caso falte o ID
+    return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):* \nhttps://2212785.github.io/Agendamentos/?id=${idLimpo}`;
+};
+
 const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *breve período*!";
 
 const respostasElite = {
@@ -114,7 +116,7 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
         } else if (tipo === "template") {
             const nomeFinal = conteudo.criança || "Cliente";
             const escolaFinal = conteudo.escola || "sua escola";
-            textoParaFirebase = `[TEMPLATE: inicio_contato] Olá ${nomeFinal}, fotos prontas da ${escolaFinal}.`;
+            textoParaFirebase = `[TEMPLATE: inicio_contato] Olá ${nomeFinal}, fotos prontas.`;
             data = {
                 messaging_product: "whatsapp", to: to, type: "template",
                 template: {
@@ -138,28 +140,27 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
 }
 
 // ===============================
-// 🚀 ROTA DE DISPARO (CORRIGIDA)
+// 🚀 ROTA DE DISPARO (CORREÇÃO DE LINK)
 // ===============================
 app.post('/disparar-template', async (req, res) => {
     const { telefone, nome_formando, escola, projeto_id } = req.body;
     if (!telefone || !nome_formando) return res.status(400).send({ error: "Dados incompletos" });
 
     try {
-        // Envia o template inicial
         await enviarMensagemMeta(telefone, { criança: nome_formando, escola: escola }, "template");
         
-        // SALVA NO NÓ "ENVIADOS" PARA O BOT SABER O ID DO PROJETO DEPOIS
-        const numeroLimpo = telefone.replace(/\D/g, "");
-        await set(ref(db, `enviados/${numeroLimpo}`), {
+        // CORREÇÃO: Salva o ID do projeto vinculado EXCLUSIVAMENTE ao telefone de destino
+        const numeroDestino = telefone.replace(/\D/g, "");
+        await set(ref(db, `vinculo_projeto/${numeroDestino}`), {
+            projeto_id: projeto_id || "geral",
             nome: nome_formando,
             escola: escola,
-            projeto_id: projeto_id,
-            data_envio: Date.now()
+            data_disparo: Date.now()
         });
 
         res.status(200).send({ success: true });
     } catch (error) { 
-        res.status(500).send({ error: "Erro no disparo" }); 
+        res.status(500).send({ error: "Erro no disparo massivo" }); 
     }
 });
 
@@ -169,71 +170,72 @@ app.post('/disparar-template', async (req, res) => {
 async function processarMensagemRecebida(from, texto, msgType = "text") {
     const txt = (texto || "").toLowerCase().trim();
     const numeroLimpo = from.replace(/\D/g, "");
+    
     let nomeCriança = "Formando"; 
     let escolaCliente = "Escola";
-    let idProjetoAtual = "";
+    let idProjetoCerto = "";
 
     try {
-        // BUSCA QUEM É O ALUNO E DE QUAL PROJETO ELE É
-        const snapshot = await get(ref(db, `enviados/${numeroLimpo}`));
+        // BUSCA O PROJETO CERTO VINCULADO AO TELEFONE QUE RESPONDEU
+        const snapshot = await get(ref(db, `vinculo_projeto/${numeroLimpo}`));
         if (snapshot.exists()) {
-            const info = snapshot.val();
-            nomeCriança = info.nome || "Formando";
-            escolaCliente = info.escola || "Escola";
-            idProjetoAtual = info.projeto_id || ""; 
+            const vinculo = snapshot.val();
+            nomeCriança = vinculo.nome || "Formando";
+            escolaCliente = vinculo.escola || "Escola";
+            idProjetoCerto = vinculo.projeto_id;
         }
-    } catch (e) { console.error("Erro ao buscar info do aluno"); }
+    } catch (e) { console.error("Erro ao ler Vínculo de Projeto"); }
 
     let respostaFinal = "";
     if (msgType === "audio") {
-        respostaFinal = respostasElite.audio(idProjetoAtual);
+        respostaFinal = respostasElite.audio(idProjetoCerto);
     } else {
         if (txt.includes("não quero") || txt.includes("nao quero") || txt.includes("remover") || txt.includes("pare")) {
-            respostaFinal = respostasElite.remover(idProjetoAtual);
+            respostaFinal = respostasElite.remover(idProjetoCerto);
         } else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
-            respostaFinal = respostasElite.formando(nomeCriança, idProjetoAtual);
+            respostaFinal = respostasElite.formando(nomeCriança, idProjetoCerto);
         } else if (txt === "2" || txt.includes("responsavel") || txt === "2️⃣") {
-            respostaFinal = respostasElite.responsavel(nomeCriança, idProjetoAtual);
+            respostaFinal = respostasElite.responsavel(nomeCriança, idProjetoCerto);
         } else if (txt === "3" || txt.includes("não conheço") || txt === "3️⃣") {
             respostaFinal = respostasElite.desculpas();
         } else if (txt.includes("sobrinha") || txt.includes("sobrinho") || txt.includes("afilhada") || txt.includes("afilhado") || txt.includes("enteada") || txt.includes("enteado") || txt.includes("neto") || txt.includes("neta") || txt.includes("primo") || txt.includes("prima")) {
-            respostaFinal = respostasElite.parente_proximo(nomeCriança, idProjetoAtual);
+            respostaFinal = respostasElite.parente_proximo(nomeCriança, idProjetoCerto);
         } else if (txt.includes("digital") || txt.includes("por email") || txt.includes("pelo zap") || txt.includes("mandar foto") || txt.includes("pelo whatsapp") || txt.includes("arquivo")) {
-            respostaFinal = respostasElite.duvida_qualidade_digital(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_qualidade_digital(idProjetoCerto);
         } else if (txt.includes("outro lugar") || txt.includes("lugar público") || txt.includes("trabalho") || txt.includes("serviço") || txt.includes("padaria") || txt.includes("café")) {
-            respostaFinal = respostasElite.duvida_local_reuniao(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_local_reuniao(idProjetoCerto);
         } else if (txt.includes("já comprei") || txt.includes("ja comprei") || txt.includes("já tenho") || txt.includes("ja tenho") || txt.includes("outra empresa")) {
-            respostaFinal = respostasElite.ja_tem_fotos(escolaCliente, idProjetoAtual);
+            respostaFinal = respostasElite.ja_tem_fotos(escolaCliente, idProjetoCerto);
         } else if (txt.includes("na hora") || txt.includes("decidir depois") || txt.includes("tempo para pensar") || txt.includes("obrigado a comprar")) {
-            respostaFinal = respostasElite.duvida_decisao_hora(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_decisao_hora(idProjetoCerto);
         } else if (txt.includes("entrada") || txt.includes("dar entrada")) {
-            respostaFinal = respostasElite.duvida_entrada(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_entrada(idProjetoCerto);
         } else if (txt.includes("limite") || txt.includes("cartão") || txt.includes("cartao")) {
-            respostaFinal = respostasElite.duvida_limite_cartao(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_limite_cartao(idProjetoCerto);
         } else if (txt.includes("nome sujo") || txt.includes("spc") || txt.includes("serasa") || txt.includes("restrição") || txt.includes("restricao")) {
-            respostaFinal = respostasElite.duvida_nome_sujo(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_nome_sujo(idProjetoCerto);
         } else if (txt.includes("viajando") || txt.includes("fora da cidade") || txt.includes("viajar") || txt.includes("não moro") || txt.includes("nao moro") || txt.includes("mudei") || txt.includes("mora em outra")) {
-            respostaFinal = respostasElite.duvida_viajando(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_viajando(idProjetoCerto);
         } else if (txt.includes("trabalho") || txt.includes("sem tempo") || txt.includes("corrido") || txt.includes("horário") || txt.includes("horario")) {
-            respostaFinal = respostasElite.duvida_tempo(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_tempo(idProjetoCerto);
         } else if (txt.includes("dinheiro") || txt.includes("condição") || txt.includes("condicao") || txt.includes("desempregado") || txt.includes("pobre")) {
-            respostaFinal = respostasElite.duvida_financeiro(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_financeiro(idProjetoCerto);
         } else if (txt.includes("avulsa") || txt.includes("comprar uma") || txt.includes("separada")) {
-            respostaFinal = respostasElite.duvida_avulsa(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_avulsa(idProjetoCerto);
         } else if (txt.includes("se eu não comprar") || txt.includes("fazer com as fotos") || txt.includes("sobrar")) {
-            respostaFinal = respostasElite.duvida_nao_comprar(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_nao_comprar(idProjetoCerto);
         } else if (txt.includes("conheço") && (txt.includes("não sou") || txt.includes("nao sou"))) {
-            respostaFinal = respostasElite.conhece_mas_nao_responsavel(idProjetoAtual);
+            respostaFinal = respostasElite.conhece_mas_nao_responsavel(idProjetoCerto);
         } else if (txt.includes("conseguiu") || txt.includes("número") || txt.includes("numero") || txt.includes("pegou") || txt.includes("deu meu telefone") || txt.includes("deu meu contato")) {
-            respostaFinal = respostasElite.duvida_origem_fone(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_origem_fone(idProjetoCerto);
         } else if (txt.includes("quem") || txt.includes("falando") || txt.includes("empresa")) {
-            respostaFinal = respostasElite.duvida_quem(escolaCliente, idProjetoAtual);
+            respostaFinal = respostasElite.duvida_quem(escolaCliente, idProjetoCerto);
         } else if (txt.includes("preço") || txt.includes("valor") || txt.includes("custa")) {
-            respostaFinal = respostasElite.duvida_preco(idProjetoAtual);
+            respostaFinal = respostasElite.duvida_preco(idProjetoCerto);
         } else if (txt.includes("confiavel") || txt.includes("seguro")) {
-            respostaFinal = respostasElite.seguranca(escolaCliente, idProjetoAtual);
+            respostaFinal = respostasElite.seguranca(escolaCliente, idProjetoCerto);
         } else {
-            respostaFinal = respostasElite.fallback(idProjetoAtual);
+            respostaFinal = respostasElite.fallback(idProjetoCerto);
         }
     }
 
