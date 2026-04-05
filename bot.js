@@ -53,9 +53,7 @@ onValue(ref(db, "config/projeto_ativo"), (snap) => {
 const obterLink = (idProjeto) => {
     // const idLimpo = idProjeto || 'guaratingueta-guilherme'; // Backup caso falte o ID
     // CORREÇÃO: Removido o nome fixo. Se não tiver ID do aluno, usa o projeto ativo agora.
-    // const idLimpo = (idProjeto && idProjeto !== 'geral') ? idProjeto : projetoAtivoGlobal; 
-    // CORREÇÃO FINAL: Garante prioridade ao ID vindo do parâmetro, evitando o backup fixo indesejado.
-    const idLimpo = (idProjeto && idProjeto !== 'geral' && idProjeto !== '') ? idProjeto : projetoAtivoGlobal;
+    const idLimpo = (idProjeto && idProjeto !== 'geral') ? idProjeto : projetoAtivoGlobal; 
     return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):* \nhttps://2212785.github.io/Agendamentos/?id=${idLimpo}`;
 };
 
@@ -204,17 +202,20 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
             nomeCriança = vinculo.nome || "Formando";
             escolaCliente = vinculo.escola || "Escola";
             
-            // CORREÇÃO: Busca o projeto em que o usuário que disparou está trabalhando no momento
-            const remetente = vinculo.remetente || "Evanio";
-            const snapUltimo = await get(ref(db, `config/ultimo_projeto_usuario/${remetente}`));
+            // CORREÇÃO REALIZADA AQUI:
+            // Removemos a dependência do config/ultimo_projeto_usuario para evitar conflito com o painel ADM.
+            // O Bot agora confia 100% no que foi gravado no momento do disparo para este número específico.
             
+            /* const remetente = vinculo.remetente || "Evanio";
+            const snapUltimo = await get(ref(db, `config/ultimo_projeto_usuario/${remetente}`));
             if (snapUltimo.exists()) {
-                // Se o remetente trocou de projeto, o link segue o novo projeto do painel dele
-                idProjetoCerto = snapUltimo.val();
+                idProjetoCerto = snapUltimo.val(); 
             } else {
-                // Caso contrário, usa o ID que estava gravado no momento do disparo inicial
                 idProjetoCerto = vinculo.projeto_id;
             }
+            */
+
+            idProjetoCerto = vinculo.projeto_id; // ✅ Prioridade total ao vínculo gravado no disparo
         }
 
         // BACKUP: Se ainda estiver vazio ou for "geral", usa o projeto ativo global do sistema
