@@ -47,8 +47,10 @@ const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *b
 const respostasElite = {
     formando: (criança) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis para você conhecer pessoalmente.` + avisoTempo + linkAgendamento,
     
-    responsavel: (criança) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formaturajá está disponível e ficou maravilhoso.` + avisoTempo + linkAgendamento,
+    responsavel: (criança) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + avisoTempo + linkAgendamento,
     
+    parente_proximo: (criança) => `Entendido! 😊 Informamos que o material fotográfico da formatura da(o) ${criança} já está disponível e ficou maravilhoso. Caso você não seja o responsável direto, pedimos a gentileza de encaminhar esta mensagem a ele(a) para que possamos agendar a visita.` + avisoTempo + linkAgendamento,
+
     duvida_quem: (escola) => `Olá 😊\n\nSomos da equipe oficial de fotografia da formatura da Escola ${escola}.\n\nEste canal serve para identificar os formandos e agendar as visitas de entrega.` + avisoTempo + linkAgendamento,
     
     duvida_motivo: (escola) => `Estamos entrando em contato para apresentar o material pronto da formatura da Escola ${escola} 📸\n\nAgendamos as visitas para que você veja as fotos pessoalmente e sem compromisso.` + avisoTempo + linkAgendamento,
@@ -79,9 +81,17 @@ const respostasElite = {
     
     duvida_local: () => `O representante vai até o seu endereço para apresentar o material com todo conforto e segurança 😊.` + avisoTempo + linkAgendamento,
     
-    seguranca: (escola) => `Sim, pode confiar! 😊 Somos a equipe oficial de formaturada Escola ${escola}. A visita serve apenas para você conhecer o material, sem compromisso de compra!` + avisoTempo + linkAgendamento,
+    seguranca: (escola) => `Sim, pode confiar! 😊 Somos a equipe oficial de formatura da Escola ${escola}. A visita serve apenas para você conhecer o material, sem compromisso de compra!` + avisoTempo + linkAgendamento,
+
+    duvida_qualidade_digital: () => `Entendo perfeitamente! 😊 Por questões de segurança e para você apreciar a alta resolução e o acabamento do material físico, o representante leva o álbum completo até você. Ver as fotos em mãos é uma experiência totalmente diferente! Aproveite para tirar suas dúvidas e ver a qualidade pessoalmente.` + avisoTempo + linkAgendamento,
+
+    duvida_local_reuniao: () => `Sem problemas! 😊 Nosso representante pode te encontrar onde for mais confortável e seguro para você: seja na sua residência, no seu local de trabalho ou até em um local público de sua preferência. O importante é você ver esse material!` + avisoTempo + linkAgendamento,
+
+    ja_tem_fotos: (escola) => `Que bom que você valoriza essas memórias! 😊 No entanto, este material que estamos entregando agora é o *oficial e exclusivo* da formatura da Escola ${escola}, com fotos únicas que você ainda não viu. Vale a pena conferir sem compromisso, pois o trabalho ficou realmente especial!` + avisoTempo + linkAgendamento,
+
+    duvida_decisao_hora: () => `Fique super tranquilo(a)! 😊 A visita é justamente para você conhecer o material com calma. O representante vai te apresentar todas as opções e você decide o que for melhor para sua família. Nosso foco é que você veja o resultado desse momento tão importante!` + avisoTempo + linkAgendamento,
     
-    audio: () => `Olá! 🤖 Como sou um assistente virtual, eu **not consigo ouvir áudios**. \n\nComo estaremos na cidade por *poucos dias*, por favor, use o link para garantir seu horário:` + linkAgendamento,
+    audio: () => `Olá! 🤖 Como sou um assistente virtual, eu **não consigo ouvir áudios**. \n\nComo estaremos na cidade por *poucos dias*, por favor, use o link para garantir seu horário:` + linkAgendamento,
 
     remover: () => `Entendido 👍\n\nPedimos desculpas pelo incômodo. Informamos que vamos excluir seus dados de nosso cadastro imediatamente. Caso mude de ideia e queira conhecer o material, basta realizar o agendamento da visita pelo link abaixo 😊` + avisoTempo + linkAgendamento,
 
@@ -175,13 +185,23 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
             respostaFinal = respostasElite.responsavel(nomeCriança);
         } else if (txt === "3" || txt.includes("não conheço") || txt === "3️⃣") {
             respostaFinal = respostasElite.desculpas();
+        } else if (txt.includes("sobrinha") || txt.includes("sobrinho") || txt.includes("afilhada") || txt.includes("afilhado") || txt.includes("enteada") || txt.includes("enteado") || txt.includes("neto") || txt.includes("neta") || txt.includes("primo") || txt.includes("prima")) {
+            respostaFinal = respostasElite.parente_proximo(nomeCriança);
+        } else if (txt.includes("digital") || txt.includes("por email") || txt.includes("pelo zap") || txt.includes("mandar foto") || txt.includes("pelo whatsapp") || txt.includes("arquivo")) {
+            respostaFinal = respostasElite.duvida_qualidade_digital();
+        } else if (txt.includes("outro lugar") || txt.includes("lugar público") || txt.includes("trabalho") || txt.includes("serviço") || txt.includes("padaria") || txt.includes("café")) {
+            respostaFinal = respostasElite.duvida_local_reuniao();
+        } else if (txt.includes("já comprei") || txt.includes("ja comprei") || txt.includes("já tenho") || txt.includes("ja tenho") || txt.includes("outra empresa")) {
+            respostaFinal = respostasElite.ja_tem_fotos(escolaCliente);
+        } else if (txt.includes("na hora") || txt.includes("decidir depois") || txt.includes("tempo para pensar") || txt.includes("obrigado a comprar")) {
+            respostaFinal = respostasElite.duvida_decisao_hora();
         } else if (txt.includes("entrada") || txt.includes("dar entrada")) {
             respostaFinal = respostasElite.duvida_entrada();
         } else if (txt.includes("limite") || txt.includes("cartão") || txt.includes("cartao")) {
             respostaFinal = respostasElite.duvida_limite_cartao();
         } else if (txt.includes("nome sujo") || txt.includes("spc") || txt.includes("serasa") || txt.includes("restrição") || txt.includes("restricao")) {
             respostaFinal = respostasElite.duvida_nome_sujo();
-        } else if (txt.includes("viajando") || txt.includes("fora da cidade") || txt.includes("viajar") || txt.includes("não moro") || txt.includes("nao moro") || txt.includes("mudei")) {
+        } else if (txt.includes("viajando") || txt.includes("fora da cidade") || txt.includes("viajar") || txt.includes("não moro") || txt.includes("nao moro") || txt.includes("mudei") || txt.includes("mora em outra")) {
             respostaFinal = respostasElite.duvida_viajando();
         } else if (txt.includes("trabalho") || txt.includes("sem tempo") || txt.includes("corrido") || txt.includes("horário") || txt.includes("horario")) {
             respostaFinal = respostasElite.duvida_tempo();
@@ -193,7 +213,7 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
             respostaFinal = respostasElite.duvida_nao_comprar();
         } else if (txt.includes("conheço") && (txt.includes("não sou") || txt.includes("nao sou"))) {
             respostaFinal = respostasElite.conhece_mas_nao_responsavel();
-        } else if (txt.includes("conseguiu") || txt.includes("número") || txt.includes("numero") || txt.includes("pegou")) {
+        } else if (txt.includes("conseguiu") || txt.includes("número") || txt.includes("numero") || txt.includes("pegou") || txt.includes("deu meu telefone") || txt.includes("deu meu contato")) {
             respostaFinal = respostasElite.duvida_origem_fone();
         } else if (txt.includes("quem") || txt.includes("falando") || txt.includes("empresa")) {
             respostaFinal = respostasElite.duvida_quem(escolaCliente);
