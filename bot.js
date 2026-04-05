@@ -53,7 +53,9 @@ onValue(ref(db, "config/projeto_ativo"), (snap) => {
 const obterLink = (idProjeto) => {
     // const idLimpo = idProjeto || 'guaratingueta-guilherme'; // Backup caso falte o ID
     // CORREÇÃO: Removido o nome fixo. Se não tiver ID do aluno, usa o projeto ativo agora.
-    const idLimpo = (idProjeto && idProjeto !== 'geral') ? idProjeto : projetoAtivoGlobal; 
+    // const idLimpo = (idProjeto && idProjeto !== 'geral') ? idProjeto : projetoAtivoGlobal; 
+    // CORREÇÃO FINAL: Garante prioridade ao ID vindo do parâmetro, evitando o backup fixo indesejado.
+    const idLimpo = (idProjeto && idProjeto !== 'geral' && idProjeto !== '') ? idProjeto : projetoAtivoGlobal;
     return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):* \nhttps://2212785.github.io/Agendamentos/?id=${idLimpo}`;
 };
 
@@ -157,7 +159,7 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
 // ===============================
 app.post('/disparar-template', async (req, res) => {
     // const { telefone, nome_formando, escola, projeto_id } = req.body;
-    // CORREÇÃO: Capturando o usuário remetente para vincular a sessão
+    // CORREÇÃO: Capturando o usuário remetente vindo do index.html para identificar a sessão
     const { telefone, nome_formando, escola, projeto_id, usuario } = req.body;
     if (!telefone || !nome_formando) return res.status(400).send({ error: "Dados incompletos" });
 
@@ -165,13 +167,13 @@ app.post('/disparar-template', async (req, res) => {
         await enviarMensagemMeta(telefone, { criança: nome_formando, escola: escola }, "template");
         
         // CORREÇÃO: Salva o ID do projeto vinculado EXCLUSIVAMENTE ao telefone de destino
-        // Além disso, salva quem foi o remetente original
+        // Além disso, salva quem foi o remetente original (usuario)
         const numeroDestino = telefone.replace(/\D/g, "");
         await set(ref(db, `vinculo_projeto/${numeroDestino}`), {
             projeto_id: projeto_id || "geral",
             nome: nome_formando,
             escola: escola,
-            remetente: usuario || "Evanio", // Armazena quem enviou a mensagem
+            remetente: usuario || "Evanio", // Armazena qual usuário disparou a mensagem
             data_disparo: Date.now()
         });
 
@@ -191,7 +193,7 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
     let nomeCriança = "Formando"; 
     let escolaCliente = "Escola";
     // let idProjetoCerto = projetoAtivoGlobal; // Inicia com o global como padrão dinâmico
-    // CORREÇÃO: Inicia vazio para buscar a lógica de usuário
+    // CORREÇÃO: Inicia com a tentativa de buscar a sessão do usuário
     let idProjetoCerto = "";
 
     try {
@@ -202,19 +204,21 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
             nomeCriança = vinculo.nome || "Formando";
             escolaCliente = vinculo.escola || "Escola";
             
-            // CORREÇÃO: Busca qual é o projeto atual do usuário que disparou para este aluno
+            // CORREÇÃO: Busca o projeto em que o usuário que disparou está trabalhando no momento
             const remetente = vinculo.remetente || "Evanio";
             const snapUltimo = await get(ref(db, `config/ultimo_projeto_usuario/${remetente}`));
             
             if (snapUltimo.exists()) {
-                // Se o remetente mudou de projeto no painel, o link acompanha a mudança
+                // Se o remetente trocou de projeto, o link segue o novo projeto do painel dele
                 idProjetoCerto = snapUltimo.val();
             } else {
-                // Caso contrário, mantém o ID que estava no momento do disparo
+                // Caso contrário, usa o ID que estava gravado no momento do disparo inicial
                 idProjetoCerto = vinculo.projeto_id;
             }
-        } else {
-            // Se não houver vínculo registrado, usa o projeto global do sistema como última opção
+        }
+
+        // BACKUP: Se ainda estiver vazio ou for "geral", usa o projeto ativo global do sistema
+        if (!idProjetoCerto || idProjetoCerto === "" || idProjetoCerto === "geral") {
             idProjetoCerto = projetoAtivoGlobal;
         }
     } catch (e) { console.error("Erro ao ler Vínculo de Projeto"); }
