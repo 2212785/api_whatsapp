@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config(); 
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -40,7 +40,9 @@ const mensagensProcessadas = new Set();
 // ===============================
 // Função que gera o link dinâmico baseado no projeto em que o aluno foi cadastrado
 const obterLink = (idProjeto) => {
-    const idLimpo = idProjeto || 'guaratingueta-guilherme'; // Backup caso falte o ID
+    // const idLimpo = idProjeto || 'guaratingueta-guilherme'; // Backup caso falte o ID
+    // Substituído para garantir que nunca retorne "geral" se houver um ID válido
+    const idLimpo = (idProjeto && idProjeto !== 'geral') ? idProjeto : 'guaratingueta-guilherme'; 
     return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):* \nhttps://2212785.github.io/Agendamentos/?id=${idLimpo}`;
 };
 
@@ -115,6 +117,8 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
             textoParaFirebase = conteudo;
         } else if (tipo === "template") {
             const nomeFinal = conteudo.criança || "Cliente";
+            // const escolaFinal = conteudo.escola || "sua escola";
+            // Substituído para usar a escola vinda do parâmetro de forma garantida
             const escolaFinal = conteudo.escola || "sua escola";
             textoParaFirebase = `[TEMPLATE: inicio_contato] Olá ${nomeFinal}, fotos prontas.`;
             data = {
@@ -183,6 +187,14 @@ async function processarMensagemRecebida(from, texto, msgType = "text") {
             nomeCriança = vinculo.nome || "Formando";
             escolaCliente = vinculo.escola || "Escola";
             idProjetoCerto = vinculo.projeto_id;
+        } else {
+            // Caso o vínculo direto não exista, tenta buscar no projeto ativo global como última instância
+            const snapGlobal = await get(ref(db, "config/projeto_ativo"));
+            if (snapGlobal.exists()) {
+                idProjetoCerto = snapGlobal.val();
+                const snapEscola = await get(ref(db, `projetos/${idProjetoCerto}/escola`));
+                escolaCliente = snapEscola.val() || "Escola";
+            }
         }
     } catch (e) { console.error("Erro ao ler Vínculo de Projeto"); }
 
