@@ -13,7 +13,7 @@
 
         /* Coluna Esquerda */
         .sidebar { width: 35%; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; min-width: 300px; }
-        .sidebar-header { background: #f0f2f5; padding: 15px; font-weight: bold; color: #075e54; border-bottom: 1px solid #ddd; }
+        .sidebar-header { background: #f0f2f5; padding: 15px; font-weight: bold; color: #075e54; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
         .contact-list { flex: 1; overflow-y: auto; background: #fff; }
         .contact-item { padding: 15px; border-bottom: 1px solid #f2f2f2; cursor: pointer; display: flex; flex-direction: column; transition: 0.2s; border-left: 4px solid transparent; }
         .contact-item:hover { background: #f5f6f6; }
@@ -42,13 +42,16 @@
 
 <div class="app-container">
     <div class="sidebar">
-        <div class="sidebar-header">Conversas Elite Bot</div>
+        <div class="sidebar-header">
+            <span>Conversas Elite</span>
+            <span id="user-badge" style="font-size: 10px; background: #075e54; color: white; padding: 2px 8px; border-radius: 10px; text-transform: uppercase;">...</span>
+        </div>
         <div id="contact-list" class="contact-list"></div>
     </div>
     <div class="main-chat" id="main-chat">
         <div class="empty-state">
             <h3>Selecione uma conversa</h3>
-            <p>Os números com ou sem '55' foram unificados.</p>
+            <p>Monitorando mensagens em tempo real.</p>
         </div>
     </div>
 </div>
@@ -65,6 +68,10 @@
     let conversaAtiva = null;
     let conversasUnificadas = {};
 
+    // ESTRUTURA MULTIUSUÁRIO: Identifica quem está logado
+    const usuarioLogado = localStorage.getItem('userType') || 'Evanio';
+    document.getElementById('user-badge').innerText = usuarioLogado;
+
     // ⚡ FUNÇÃO DE INTELIGÊNCIA: Normaliza para os últimos 11 dígitos
     function normalizarNumero(num) {
         let limpo = num.replace(/\D/g, '');
@@ -74,7 +81,9 @@
         return limpo;
     }
 
-    db.ref('respostas').on('value', (snapshot) => {
+    // db.ref('respostas').on('value', (snapshot) => {
+    // ALTERADO PARA MULTIUSUÁRIO: Agora escuta apenas o nó do usuário logado
+    db.ref('respostas/' + usuarioLogado).on('value', (snapshot) => {
         const dadosBrutos = snapshot.val() || {};
         conversasUnificadas = {};
 
