@@ -84,7 +84,7 @@ const respostasElite = {
     
     duvida_motivo: (escola, id) => `Estamos entrando em contato para apresentar o material pronto da formatura da Escola ${escola} 📸\n\nAgendamos as visitas para que você veja as fotos pessoalmente e sem compromisso.` + avisoTempo + obterLink(id),
     
-    duvida_preco: (id) => `🤖 Como sou um assistente virtual, eu **não consigo informar valores, mas fique tranquilo(a)! 😊 Os valores são acessíveis e temos condições de pagamento incríveis que cabem no seu bolso 😊. O representante explicará tudo detalhadamente na visita, que é totalmente sem compromisso!` + avisoTempo + obterLink(id),
+    duvida_preco: (id) => `🤖 Como sou um assistente virtual, eu **não consigo informar valores, mas fique tranquilo(a)!** 😊 Os valores são acessíveis e temos condições de pagamento incríveis que cabem no seu bolso 😊. O representante explicará tudo detalhadamente na visita, que é totalmente sem compromisso!` + avisoTempo + obterLink(id),
     
     duvida_financeiro: (id) => `Fique tranquilo(a)! 😊 Nosso objetivo é que você conheça esse trabalho maravilhoso. Temos condições especiais para quem está desempregado ou com restrições. Agende sua visita sem compromisso e converse com nosso representante!` + avisoTempo + obterLink(id),
 
@@ -304,6 +304,11 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             respostaFinal = respostasElite.duvida_preco(projeto_id);
         } else if (txt.includes("confiavel") || txt.includes("seguro")) {
             respostaFinal = respostasElite.seguranca(escolaCliente, projeto_id);
+        // } else {
+        //     respostaFinal = respostasElite.fallback(projeto_id);
+        // }
+        } else if (txt.includes("como conseguiu") || txt.includes("quem passou") || txt.includes("pegou meu numero") || txt.includes("pegou meu número") || txt.includes("meu fone") || txt.includes("meu telefone") || txt.includes("quem deu meu contato")) {
+            respostaFinal = respostasElite.duvida_origem_fone(projeto_id);
         } else {
             respostaFinal = respostasElite.fallback(projeto_id);
         }
