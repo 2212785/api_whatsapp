@@ -117,9 +117,11 @@ const respostasElite = {
 // ===============================
 // 📤 ENVIO WHATSAPP
 // ===============================
-async function enviarMensagemMeta(to, conteudo, tipo = "text") {
+// CORREÇÃO: Adicionado o parâmetro 'usuario' para salvar no nó correto do painel
+async function enviarMensagemMeta(to, conteudo, tipo = "text", usuario = "Evanio") {
     try {
         let data;
+        let textoParaLog = "";
 
         if (tipo === "text") {
             data = {
@@ -128,9 +130,11 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
                 type: "text",
                 text: { body: conteudo }
             };
+            textoParaLog = conteudo;
         } else {
             const nome = conteudo.criança || "Cliente";
             const escola = conteudo.escola || "sua escola";
+            textoParaLog = `[TEMPLATE: inicio_contato] Olá ${nome}, fotos prontas.`;
 
             data = {
                 messaging_product: "whatsapp",
@@ -163,6 +167,14 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
 
         console.log("📤 Mensagem enviada para:", to);
 
+        // CORREÇÃO: Salva no nó do usuário para o painel.html multiusuário funcionar
+        const numeroLimpo = to.replace(/\D/g, "");
+        await set(ref(db, `respostas/${usuario}/${numeroLimpo}/${Date.now()}`), {
+            mensagem: textoParaLog,
+            tipo: "BOT",
+            data: new Date().toLocaleString('pt-BR')
+        });
+
     } catch (err) {
         console.error("❌ ERRO WHATS:", err.response?.data || err.message);
     }
@@ -172,7 +184,9 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
 // 🚀 DISPARO
 // ===============================
 app.post('/disparar-template', async (req, res) => {
-    const { telefone, nome_formando, escola, projeto_id } = req.body;
+    // const { telefone, nome_formando, escola, projeto_id } = req.body;
+    // CORREÇÃO: Captura o 'usuario' enviado pelo index.html
+    const { telefone, nome_formando, escola, projeto_id, usuario } = req.body;
 
     console.log("📤 DISPARO:", req.body);
 
@@ -183,17 +197,18 @@ app.post('/disparar-template', async (req, res) => {
     try {
         const numero = normalizarNumero(telefone);
 
-        // envia template
+        // envia template - CORREÇÃO: Passando o usuário
         await enviarMensagemMeta(numero, {
             criança: nome_formando,
             escola
-        }, "template");
+        }, "template", usuario || "Evanio");
 
         // salva vínculo correto
         await set(ref(db, `vinculo_projeto/${numero}`), {
             projeto_id,
             nome: nome_formando,
             escola,
+            usuario: usuario || "Evanio", // CORREÇÃO: Salva o dono do projeto no vínculo
             data: Date.now()
         });
 
@@ -221,37 +236,46 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
 
         if (!snap.exists()) {
             console.log("❌ SEM VÍNCULO → respondendo fallback");
-            await enviarMensagemMeta(numero, "Olá! Não localizei seu cadastro.");
+            // CORREÇÃO: Fallback usando pasta padrão ou global se necessário
+            await enviarMensagemMeta(numero, "Olá! Não localizei seu cadastro.", "text", "Evanio");
             return;
         }
 
         const vinculo = snap.val();
         const projeto_id = vinculo.projeto_id;
+        const usuarioDono = vinculo.usuario || "Evanio"; // CORREÇÃO: Puxa quem é o dono da conversa
 
         if (!projeto_id || projeto_id === "geral") {
             console.log("❌ PROJETO INVÁLIDO:", vinculo);
-
-            await enviarMensagemMeta(numero, "Erro interno. Fale com o suporte.");
+            await enviarMensagemMeta(numero, "Erro interno. Fale com o suporte.", "text", usuarioDono);
             return;
         }
 
-        console.log("✅ Projeto correto:", projeto_id);
+        console.log("✅ Projeto correto:", projeto_id, "| Usuário:", usuarioDono);
 
         let resposta;
 
         if (tipo === "audio") {
             resposta = respostasElite.audio(projeto_id);
-        } else if (txt === "1" || txt.includes("sou eu")) {
+        } else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
             resposta = respostasElite.formando(vinculo.nome, projeto_id);
-        } else if (txt === "2" || txt.includes("responsavel")) {
+        } else if (txt === "2" || txt.includes("responsavel") || txt === "2️⃣") {
             resposta = respostasElite.responsavel(vinculo.nome, projeto_id);
-        } else if (txt === "3") {
+        } else if (txt === "3" || txt.includes("não conheço") || txt === "3️⃣") {
             resposta = respostasElite.desculpas();
         } else {
             resposta = respostasElite.fallback(projeto_id);
         }
 
-        await enviarMensagemMeta(numero, resposta);
+        // CORREÇÃO: Salva a mensagem recebida do cliente na pasta do usuário dono
+        await set(ref(db, `respostas/${usuarioDono}/${numero}/${Date.now()}`), {
+            mensagem: tipo === "audio" ? "[ÁUDIO ENVIADO]" : texto,
+            tipo: "CLIENTE",
+            data: new Date().toLocaleString('pt-BR')
+        });
+
+        // CORREÇÃO: Bot responde usando a pasta do usuário dono
+        await enviarMensagemMeta(numero, resposta, "text", usuarioDono);
 
     } catch (e) {
         console.error("❌ ERRO PROCESSAMENTO:", e);
