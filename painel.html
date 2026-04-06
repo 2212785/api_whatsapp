@@ -15,17 +15,26 @@
         .sidebar { width: 35%; background: #fff; border-right: 1px solid #ddd; display: flex; flex-direction: column; min-width: 300px; }
         .sidebar-header { background: #f0f2f5; padding: 15px; font-weight: bold; color: #075e54; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
         .contact-list { flex: 1; overflow-y: auto; background: #fff; }
-        .contact-item { padding: 15px; border-bottom: 1px solid #f2f2f2; cursor: pointer; display: flex; flex-direction: column; transition: 0.2s; border-left: 4px solid transparent; }
+        
+        .contact-item { padding: 15px; border-bottom: 1px solid #f2f2f2; cursor: pointer; display: flex; align-items: center; transition: 0.2s; border-left: 4px solid transparent; position: relative; }
         .contact-item:hover { background: #f5f6f6; }
         .contact-item.active { background: #ebebeb; border-left: 4px solid #075e54; }
+        
+        .contact-details { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
         .contact-info { display: flex; justify-content: space-between; margin-bottom: 5px; }
         .contact-phone { font-weight: 600; color: #111; }
         .contact-time { font-size: 0.75em; color: #667781; }
         .contact-last-msg { font-size: 0.85em; color: #667781; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+        .btn-delete-contact { 
+            background: transparent; border: none; color: #ccc; cursor: pointer; padding: 5px; 
+            margin-left: 10px; visibility: hidden; transition: 0.2s; 
+        }
+        .contact-item:hover .btn-delete-contact { visibility: visible; color: #ef4444; }
+
         /* Coluna Direita */
         .main-chat { flex: 1; display: flex; flex-direction: column; background: #e5ddd5 url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); }
-        .chat-header { background: #f0f2f5; padding: 10px 20px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #ddd; height: 60px; font-weight: bold; color: #333; }
+        .chat-header { background: #f0f2f5; padding: 10px 20px; display: flex; align-items: center; border-bottom: 1px solid #ddd; height: 60px; font-weight: bold; color: #333; }
         .chat-messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 8px; scroll-behavior: smooth; }
         
         .balao { max-width: 65%; padding: 8px 12px; border-radius: 8px; font-size: 0.9em; position: relative; box-shadow: 0 1px 1px rgba(0,0,0,0.1); word-wrap: break-word; line-height: 1.4; }
@@ -33,8 +42,12 @@
         .BOT { align-self: flex-end; background: #dcf8c6; border-top-right-radius: 0; color: #333; }
         .msg-meta { font-size: 0.7em; margin-top: 4px; display: block; text-align: right; opacity: 0.5; }
 
-        .btn-delete-all { background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; font-size: 10px; cursor: pointer; font-weight: bold; text-transform: uppercase; }
-        .btn-delete-all:hover { background: #dc2626; }
+        .btn-clear-all { 
+            background: #ef4444; color: white; border: none; padding: 6px 12px; 
+            border-radius: 6px; font-size: 10px; cursor: pointer; font-weight: bold; 
+            text-transform: uppercase; 
+        }
+        .btn-clear-all:hover { background: #dc2626; }
 
         .empty-state { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; color: #667781; text-align: center; padding: 20px; }
         ::-webkit-scrollbar { width: 6px; }
@@ -47,17 +60,16 @@
     <div class="sidebar">
         <div class="sidebar-header">
             <div>
-                <span>Elite Chat</span>
-                <span id="user-badge" style="font-size: 10px; background: #075e54; color: white; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; margin-left: 5px;">...</span>
+                <span id="user-badge" style="font-size: 11px; background: #075e54; color: white; padding: 3px 10px; border-radius: 12px; text-transform: uppercase;">...</span>
             </div>
-            <button onclick="window.limparTodasConversas()" class="btn-delete-all">Limpar Tudo</button>
+            <button onclick="window.limparTudo()" class="btn-clear-all">Limpar Tudo</button>
         </div>
         <div id="contact-list" class="contact-list"></div>
     </div>
     <div class="main-chat" id="main-chat">
         <div class="empty-state">
             <h3>Selecione uma conversa</h3>
-            <p>As mensagens são separadas por usuário.</p>
+            <p>Painel de monitoramento multiusuário.</p>
         </div>
     </div>
 </div>
@@ -72,40 +84,40 @@
     const db = firebase.database();
     
     let conversaAtiva = null;
-    let conversasUnificadas = {};
+    let conversasOriginais = {}; // Dados puros do Firebase para deleção
+    let conversasUnificadas = {}; // Dados normalizados para exibição
 
-    // Captura o usuário logado via URL ou LocalStorage
+    // Identifica o usuário para abrir a "gaveta" certa
     const urlParams = new URLSearchParams(window.location.search);
     const usuarioLogado = urlParams.get('user') || localStorage.getItem('userType') || 'Evanio';
     document.getElementById('user-badge').innerText = usuarioLogado;
 
-    // ⚡ FUNÇÃO DE INTELIGÊNCIA: Normaliza para os últimos 11 dígitos
     function normalizarNumero(num) {
         let limpo = num.replace(/\D/g, '');
-        if (limpo.length > 11) {
-            return limpo.slice(-11); 
-        }
+        if (limpo.length > 11) return limpo.slice(-11);
         return limpo;
     }
 
-    // Escuta apenas as respostas pertencentes ao usuário logado
+    // Escuta apenas as mensagens do usuário logado
     db.ref('respostas/' + usuarioLogado).on('value', (snapshot) => {
         const dadosBrutos = snapshot.val() || {};
+        conversasOriginais = dadosBrutos; 
         conversasUnificadas = {};
 
         Object.keys(dadosBrutos).forEach(foneOriginal => {
             const foneCurto = normalizarNumero(foneOriginal);
-            
             if (!conversasUnificadas[foneCurto]) {
-                conversasUnificadas[foneCurto] = {};
+                conversasUnificadas[foneCurto] = { 
+                    originalKeys: [], // Guarda as chaves originais (com ou sem 55) para deletar
+                    mensagens: {} 
+                };
             }
-            Object.assign(conversasUnificadas[foneCurto], dadosBrutos[foneOriginal]);
+            conversasUnificadas[foneCurto].originalKeys.push(foneOriginal);
+            Object.assign(conversasUnificadas[foneCurto].mensagens, dadosBrutos[foneOriginal]);
         });
 
         renderizarContatos();
-        if (conversaAtiva) {
-            atualizarJanelaChat(conversaAtiva);
-        }
+        if (conversaAtiva) abrirConversa(conversaAtiva);
     });
 
     function renderizarContatos() {
@@ -113,7 +125,7 @@
         listContainer.innerHTML = "";
         
         const listaParaOrdenar = Object.keys(conversasUnificadas).map(phone => {
-            const msgs = conversasUnificadas[phone];
+            const msgs = conversasUnificadas[phone].mensagens;
             const ids = Object.keys(msgs).sort();
             const lastId = ids[ids.length - 1];
             return { phone, lastTimestamp: lastId, lastMsg: msgs[lastId] };
@@ -124,17 +136,21 @@
         listaParaOrdenar.forEach(contato => {
             const item = document.createElement('div');
             item.className = `contact-item ${conversaAtiva === contato.phone ? 'active' : ''}`;
-            item.onclick = () => abrirConversa(contato.phone);
             
             const horaFull = contato.lastMsg.data || "";
             const horaExibicao = horaFull.includes(' ') ? horaFull.split(' ')[1] : horaFull;
 
             item.innerHTML = `
-                <div class="contact-info">
-                    <span class="contact-phone">${contato.phone}</span>
-                    <span class="contact-time">${horaExibicao}</span>
+                <div class="contact-details" onclick="abrirConversa('${contato.phone}')">
+                    <div class="contact-info">
+                        <span class="contact-phone">${contato.phone}</span>
+                        <span class="contact-time">${horaExibicao}</span>
+                    </div>
+                    <div class="contact-last-msg">${contato.lastMsg.mensagem || "[Mensagem]"}</div>
                 </div>
-                <div class="contact-last-msg">${contato.lastMsg.mensagem || "[Mensagem]"}</div>
+                <button class="btn-delete-contact" title="Excluir conversa" onclick="window.deletarConversa('${contato.phone}', event)">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                </button>
             `;
             listContainer.appendChild(item);
         });
@@ -142,26 +158,19 @@
 
     function abrirConversa(phone) {
         conversaAtiva = phone;
-        atualizarJanelaChat(phone);
-        renderizarContatos();
-    }
-
-    function atualizarJanelaChat(phone) {
         const chatContainer = document.getElementById('main-chat');
-        const msgs = conversasUnificadas[phone];
-        if (!msgs) return;
+        const data = conversasUnificadas[phone];
+        if (!data) return;
 
-        const sortedIds = Object.keys(msgs).sort();
+        const sortedIds = Object.keys(data.mensagens).sort();
 
         let chatHtml = `
-            <div class="chat-header">
-                <span>📱 ${phone}</span>
-            </div>
+            <div class="chat-header">📱 ${phone}</div>
             <div class="chat-messages" id="chat-messages">
         `;
 
         sortedIds.forEach(id => {
-            const m = msgs[id];
+            const m = data.mensagens[id];
             chatHtml += `
                 <div class="balao ${m.tipo}">
                     ${(m.mensagem || "").replace(/\n/g, '<br>')}
@@ -174,25 +183,44 @@
         chatContainer.innerHTML = chatHtml;
         const msgDiv = document.getElementById('chat-messages');
         if (msgDiv) msgDiv.scrollTop = msgDiv.scrollHeight;
+        
+        // Atualiza estilo da lista
+        document.querySelectorAll('.contact-item').forEach(i => i.classList.remove('active'));
+        const activeItem = Array.from(document.querySelectorAll('.contact-phone')).find(el => el.textContent === phone);
+        if(activeItem) activeItem.closest('.contact-item').classList.add('active');
     }
 
-    // Função para deletar as mensagens do usuário atual
-    window.limparTodasConversas = function() {
-        const senha = prompt(`Atenção ${usuarioLogado}! Digite sua senha para apagar TODAS as suas conversas deste painel:`);
-        
-        let confirmacao = false;
-        if (usuarioLogado === "Evanio" && senha === "elite") confirmacao = true;
-        if (usuarioLogado === "Willian" && senha === "2025") confirmacao = true;
+    // FUNÇÃO: Deletar uma única conversa
+    window.deletarConversa = function(phone, event) {
+        event.stopPropagation(); // Impede de abrir a conversa ao clicar na lixeira
+        if (confirm(`Deseja excluir permanentemente a conversa com ${phone}?`)) {
+            const keysParaRemover = conversasUnificadas[phone].originalKeys;
+            const promises = keysParaRemover.map(key => db.ref(`respostas/${usuarioLogado}/${key}`).remove());
+            
+            Promise.all(promises).then(() => {
+                if (conversaAtiva === phone) {
+                    conversaAtiva = null;
+                    document.getElementById('main-chat').innerHTML = '<div class="empty-state"><h3>Conversa excluída</h3></div>';
+                }
+            });
+        }
+    };
 
-        if (confirmacao) {
-            db.ref('respostas/' + usuarioLogado).remove()
-                .then(() => {
-                    alert("Painel limpo com sucesso!");
-                    location.reload();
-                })
-                .catch((error) => alert("Erro ao limpar: " + error));
+    // FUNÇÃO: Limpar todas as conversas do usuário logado
+    window.limparTudo = function() {
+        const confirmacao = prompt(`Isso apagará TODAS as conversas de ${usuarioLogado}. Digite sua senha para confirmar:`);
+        
+        let senhaValida = false;
+        if (usuarioLogado === "Evanio" && confirmacao === "elite") senhaValida = true;
+        if (usuarioLogado === "Willian" && confirmacao === "2025") senhaValida = true;
+
+        if (senhaValida) {
+            db.ref('respostas/' + usuarioLogado).remove().then(() => {
+                alert("Painel limpo!");
+                location.reload();
+            });
         } else {
-            alert("Senha incorreta ou operação cancelada.");
+            alert("Senha incorreta ou ação cancelada.");
         }
     };
 </script>
