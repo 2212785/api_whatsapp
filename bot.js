@@ -1,29 +1,24 @@
-require('dotenv').config(); 
+require('dotenv').config();  
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const { initializeApp } = require("firebase/app");
-const { getDatabase, ref, get, onValue, update, set } = require("firebase/database");
+const { getDatabase, ref, get, set } = require("firebase/database");
 
 // ===============================
-// 🛡️ VERIFICAÇÃO DE AMBIENTE
+// 🔧 CONFIG
 // ===============================
-console.log("--------------------------------------------------");
-console.log("🔑 STATUS DO TOKEN:", process.env.META_TOKEN ? "✅ OK (DEFINIDO)" : "❌ NÃO DEFINIDO");
-console.log("--------------------------------------------------");
-
 const app = express();
 app.use(express.json());
 app.use(cors());
 
 const META_TOKEN = process.env.META_TOKEN; 
-
-if (!META_TOKEN) {
-    console.error("❌ ERRO CRÍTICO: META_TOKEN não definido nas variáveis de ambiente!");
-}
-
 const PHONE_ID = '1090608227463192'; 
 const VERIFY_TOKEN = 'meu_token_elite'; 
+
+if (!META_TOKEN) {
+    console.error("❌ META_TOKEN não definido!");
+}
 
 const firebaseConfig = {
     apiKey: "AIzaSyANz1gbAi3PIGwS1-RzOIXF6SUZvS2U0mU",
@@ -35,30 +30,29 @@ const db = getDatabase(firebaseApp);
 
 const mensagensProcessadas = new Set();
 
-// Variável para armazenar o ID do projeto que está ativo no sistema globalmente
-let projetoAtivoGlobal = "";
-
-// Sincroniza em tempo real qual projeto você ativou no painel
-onValue(ref(db, "config/projeto_ativo"), (snap) => {
-    if (snap.exists()) {
-        projetoAtivoGlobal = snap.val();
-        console.log(`📌 Projeto Ativo no Sistema: ${projetoAtivoGlobal}`);
+// ===============================
+// 🔥 FUNÇÃO PADRÃO (CRÍTICA)
+// ===============================
+function normalizarNumero(numero) {
+    let n = numero.replace(/\D/g, "");
+    if (!n.startsWith("55")) {
+        n = "55" + n;
     }
-});
+    return n;
+}
 
 // ===============================
-// 📚 CENTRAL DE RESPOSTAS ELITE
+// 🔗 LINK (SEM GLOBAL)
 // ===============================
-// Função que gera o link dinâmico baseado no projeto em que o aluno foi cadastrado
 const obterLink = (idProjeto) => {
-    // const idLimpo = idProjeto || 'guaratingueta-guilherme'; // Backup caso falte o ID
-    // CORREÇÃO: Removido o nome fixo. Se não tiver ID do aluno, usa o projeto ativo agora.
-    const idLimpo = (idProjeto && idProjeto !== 'geral') ? idProjeto : projetoAtivoGlobal; 
-    return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):* \nhttps://2212785.github.io/Agendamentos/?id=${idLimpo}`;
+    return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):* \nhttps://2212785.github.io/Agendamentos/?id=${idProjeto}`;
 };
 
 const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *breve período*!";
 
+// ===============================
+// 💬 RESPOSTAS
+// ===============================
 const respostasElite = {
     formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis para você conhecer pessoalmente.` + avisoTempo + obterLink(id),
     
@@ -116,199 +110,158 @@ const respostasElite = {
 };
 
 // ===============================
-// 📤 FUNÇÃO DE ENVIO
+// 📤 ENVIO WHATSAPP
 // ===============================
 async function enviarMensagemMeta(to, conteudo, tipo = "text") {
     try {
         let data;
-        let textoParaFirebase = "";
 
         if (tipo === "text") {
-            data = { messaging_product: "whatsapp", to: to, type: "text", text: { body: conteudo } };
-            textoParaFirebase = conteudo;
-        } else if (tipo === "template") {
-            const nomeFinal = conteudo.criança || "Cliente";
-            const escolaFinal = conteudo.escola || "sua escola";
-            textoParaFirebase = `[TEMPLATE: inicio_contato] Olá ${nomeFinal}, fotos prontas.`;
             data = {
-                messaging_product: "whatsapp", to: to, type: "template",
+                messaging_product: "whatsapp",
+                to,
+                type: "text",
+                text: { body: conteudo }
+            };
+        } else {
+            const nome = conteudo.criança || "Cliente";
+            const escola = conteudo.escola || "sua escola";
+
+            data = {
+                messaging_product: "whatsapp",
+                to,
+                type: "template",
                 template: {
-                    name: "inicio_contato", language: { code: "pt_BR" },
-                    components: [{ type: "body", parameters: [{ type: "text", text: String(nomeFinal) }, { type: "text", text: String(escolaFinal) }] }]
+                    name: "inicio_contato",
+                    language: { code: "pt_BR" },
+                    components: [{
+                        type: "body",
+                        parameters: [
+                            { type: "text", text: nome },
+                            { type: "text", text: escola }
+                        ]
+                    }]
                 }
             };
         }
 
         await axios.post(`https://graph.facebook.com/v21.0/${PHONE_ID}/messages`, data, {
-            headers: { 'Authorization': `Bearer ${META_TOKEN}`, 'Content-Type': 'application/json' }
+            headers: {
+                Authorization: `Bearer ${META_TOKEN}`,
+                "Content-Type": "application/json"
+            }
         });
 
-        const numeroLimpo = to.replace(/\D/g, "");
-        await set(ref(db, `respostas/${numeroLimpo}/${Date.now()}`), {
-            mensagem: textoParaFirebase, tipo: "BOT", data: new Date().toLocaleString('pt-BR')
-        });
-    } catch (err) { 
-        console.error(`❌ ERRO AO ENVIAR PARA ${to}:`, err.response ? err.response.data : err.message); 
+    } catch (err) {
+        console.error("❌ ERRO WHATS:", err.response?.data || err.message);
     }
 }
 
 // ===============================
-// 🚀 ROTA DE DISPARO (CORREÇÃO DE LINK)
+// 🚀 DISPARO
 // ===============================
 app.post('/disparar-template', async (req, res) => {
-    // const { telefone, nome_formando, escola, projeto_id } = req.body;
-    // CORREÇÃO: Capturando o usuário remetente vindo do index.html para identificar a sessão
-    const { telefone, nome_formando, escola, projeto_id, usuario } = req.body;
-    if (!telefone || !nome_formando) return res.status(400).send({ error: "Dados incompletos" });
+    const { telefone, nome_formando, escola, projeto_id } = req.body;
+
+    if (!telefone || !nome_formando || !projeto_id) {
+        return res.status(400).send({ error: "Dados incompletos" });
+    }
 
     try {
-        await enviarMensagemMeta(telefone, { criança: nome_formando, escola: escola }, "template");
-        
-        // CORREÇÃO: Salva o ID do projeto vinculado EXCLUSIVAMENTE ao telefone de destino
-        // Além disso, salva quem foi o remetente original (usuario)
-        const numeroDestino = telefone.replace(/\D/g, "");
-        await set(ref(db, `vinculo_projeto/${numeroDestino}`), {
-            projeto_id: projeto_id || "geral",
+        const numero = normalizarNumero(telefone);
+
+        await enviarMensagemMeta(numero, {
+            criança: nome_formando,
+            escola
+        }, "template");
+
+        await set(ref(db, `vinculo_projeto/${numero}`), {
+            projeto_id,
             nome: nome_formando,
-            escola: escola,
-            remetente: usuario || "Evanio", // Armazena qual usuário disparou a mensagem
-            data_disparo: Date.now()
+            escola,
+            data: Date.now()
         });
 
-        res.status(200).send({ success: true });
-    } catch (error) { 
-        res.status(500).send({ error: "Erro no disparo massivo" }); 
+        console.log("✅ Vínculo salvo:", numero, projeto_id);
+
+        res.send({ ok: true });
+
+    } catch (e) {
+        res.status(500).send({ error: "Erro disparo" });
     }
 });
 
 // ===============================
-// 🤖 PROCESSAR RESPOSTAS
+// 🤖 PROCESSAR MENSAGEM
 // ===============================
-async function processarMensagemRecebida(from, texto, msgType = "text") {
+async function processarMensagemRecebida(from, texto, tipo = "text") {
+    const numero = normalizarNumero(from);
     const txt = (texto || "").toLowerCase().trim();
-    const numeroLimpo = from.replace(/\D/g, "");
-    
-    let nomeCriança = "Formando"; 
-    let escolaCliente = "Escola";
-    // let idProjetoCerto = projetoAtivoGlobal; // Inicia com o global como padrão dinâmico
-    // CORREÇÃO: Inicia com a tentativa de buscar a sessão do usuário
-    let idProjetoCerto = "";
 
-    try {
-        // BUSCA O PROJETO CERTO VINCULADO AO TELEFONE QUE RESPONDEU
-        const snapshot = await get(ref(db, `vinculo_projeto/${numeroLimpo}`));
-        if (snapshot.exists()) {
-            const vinculo = snapshot.val();
-            nomeCriança = vinculo.nome || "Formando";
-            escolaCliente = vinculo.escola || "Escola";
-            
-            // CORREÇÃO REALIZADA AQUI:
-            // Removemos a dependência do config/ultimo_projeto_usuario para evitar conflito com o painel ADM.
-            // O Bot agora confia 100% no que foi gravado no momento do disparo para este número específico.
-            
-            /* const remetente = vinculo.remetente || "Evanio";
-            const snapUltimo = await get(ref(db, `config/ultimo_projeto_usuario/${remetente}`));
-            if (snapUltimo.exists()) {
-                idProjetoCerto = snapUltimo.val(); 
-            } else {
-                idProjetoCerto = vinculo.projeto_id;
-            }
-            */
+    console.log("📲 Recebido:", numero);
 
-            idProjetoCerto = vinculo.projeto_id; // ✅ Prioridade total ao vínculo gravado no disparo
-        }
+    const snap = await get(ref(db, `vinculo_projeto/${numero}`));
 
-        // BACKUP: Se ainda estiver vazio ou for "geral", usa o projeto ativo global do sistema
-        if (!idProjetoCerto || idProjetoCerto === "" || idProjetoCerto === "geral") {
-            idProjetoCerto = projetoAtivoGlobal;
-        }
-    } catch (e) { console.error("Erro ao ler Vínculo de Projeto"); }
-
-    let respostaFinal = "";
-    if (msgType === "audio") {
-        respostaFinal = respostasElite.audio(idProjetoCerto);
-    } else {
-        if (txt.includes("não quero") || txt.includes("nao quero") || txt.includes("remover") || txt.includes("pare")) {
-            respostaFinal = respostasElite.remover(idProjetoCerto);
-        } else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
-            respostaFinal = respostasElite.formando(nomeCriança, idProjetoCerto);
-        } else if (txt === "2" || txt.includes("responsavel") || txt === "2️⃣") {
-            respostaFinal = respostasElite.responsavel(nomeCriança, idProjetoCerto);
-        } else if (txt === "3" || txt.includes("não conheço") || txt === "3️⃣") {
-            respostaFinal = respostasElite.desculpas();
-        } else if (txt.includes("sobrinha") || txt.includes("sobrinho") || txt.includes("afilhada") || txt.includes("afilhado") || txt.includes("enteada") || txt.includes("enteado") || txt.includes("neto") || txt.includes("neta") || txt.includes("primo") || txt.includes("prima")) {
-            respostaFinal = respostasElite.parente_proximo(nomeCriança, idProjetoCerto);
-        } else if (txt.includes("digital") || txt.includes("por email") || txt.includes("pelo zap") || txt.includes("mandar foto") || txt.includes("pelo whatsapp") || txt.includes("arquivo")) {
-            respostaFinal = respostasElite.duvida_qualidade_digital(idProjetoCerto);
-        } else if (txt.includes("outro lugar") || txt.includes("lugar público") || txt.includes("trabalho") || txt.includes("serviço") || txt.includes("padaria") || txt.includes("café")) {
-            respostaFinal = respostasElite.duvida_local_reuniao(idProjetoCerto);
-        } else if (txt.includes("já comprei") || txt.includes("ja comprei") || txt.includes("já tenho") || txt.includes("ja tenho") || txt.includes("outra empresa")) {
-            respostaFinal = respostasElite.ja_tem_fotos(escolaCliente, idProjetoCerto);
-        } else if (txt.includes("na hora") || txt.includes("decidir depois") || txt.includes("tempo para pensar") || txt.includes("obrigado a comprar")) {
-            respostaFinal = respostasElite.duvida_decisao_hora(idProjetoCerto);
-        } else if (txt.includes("entrada") || txt.includes("dar entrada")) {
-            respostaFinal = respostasElite.duvida_entrada(idProjetoCerto);
-        } else if (txt.includes("limite") || txt.includes("cartão") || txt.includes("cartao")) {
-            respostaFinal = respostasElite.duvida_limite_cartao(idProjetoCerto);
-        } else if (txt.includes("nome sujo") || txt.includes("spc") || txt.includes("serasa") || txt.includes("restrição") || txt.includes("restricao")) {
-            respostaFinal = respostasElite.duvida_nome_sujo(idProjetoCerto);
-        } else if (txt.includes("viajando") || txt.includes("fora da cidade") || txt.includes("viajar") || txt.includes("não moro") || txt.includes("nao moro") || txt.includes("mudei") || txt.includes("mora em outra")) {
-            respostaFinal = respostasElite.duvida_viajando(idProjetoCerto);
-        } else if (txt.includes("trabalho") || txt.includes("sem tempo") || txt.includes("corrido") || txt.includes("horário") || txt.includes("horario")) {
-            respostaFinal = respostasElite.duvida_tempo(idProjetoCerto);
-        } else if (txt.includes("dinheiro") || txt.includes("condição") || txt.includes("condicao") || txt.includes("desempregado") || txt.includes("pobre")) {
-            respostaFinal = respostasElite.duvida_financeiro(idProjetoCerto);
-        } else if (txt.includes("avulsa") || txt.includes("comprar uma") || txt.includes("separada")) {
-            respostaFinal = respostasElite.duvida_avulsa(idProjetoCerto);
-        } else if (txt.includes("se eu não comprar") || txt.includes("fazer com as fotos") || txt.includes("sobrar")) {
-            respostaFinal = respostasElite.duvida_nao_comprar(idProjetoCerto);
-        } else if (txt.includes("conheço") && (txt.includes("não sou") || txt.includes("nao sou"))) {
-            respostaFinal = respostasElite.conhece_mas_nao_responsavel(idProjetoCerto);
-        } else if (txt.includes("conseguiu") || txt.includes("número") || txt.includes("numero") || txt.includes("pegou") || txt.includes("deu meu telefone") || txt.includes("deu meu contato")) {
-            respostaFinal = respostasElite.duvida_origem_fone(idProjetoCerto);
-        } else if (txt.includes("quem") || txt.includes("falando") || txt.includes("empresa")) {
-            respostaFinal = respostasElite.duvida_quem(escolaCliente, idProjetoCerto);
-        } else if (txt.includes("preço") || txt.includes("valor") || txt.includes("custa")) {
-            respostaFinal = respostasElite.duvida_preco(idProjetoCerto);
-        } else if (txt.includes("confiavel") || txt.includes("seguro")) {
-            respostaFinal = respostasElite.seguranca(escolaCliente, idProjetoCerto);
-        } else {
-            respostaFinal = respostasElite.fallback(idProjetoCerto);
-        }
+    if (!snap.exists()) {
+        console.log("❌ SEM VÍNCULO");
+        return;
     }
 
-    await set(ref(db, `respostas/${numeroLimpo}/${Date.now()}`), {
-        mensagem: msgType === "audio" ? "[ÁUDIO ENVIADO]" : texto, tipo: "CLIENTE", data: new Date().toLocaleString('pt-BR')
-    });
+    const vinculo = snap.val();
+    const projeto_id = vinculo.projeto_id;
 
-    await enviarMensagemMeta(from, respostaFinal);
+    if (!projeto_id || projeto_id === "geral") {
+        console.log("❌ PROJETO INVÁLIDO:", vinculo);
+        return;
+    }
+
+    console.log("✅ Projeto correto:", projeto_id);
+
+    let resposta;
+
+    if (tipo === "audio") {
+        resposta = respostasElite.audio(projeto_id);
+    } else if (txt.includes("1")) {
+        resposta = respostasElite.formando(vinculo.nome, projeto_id);
+    } else if (txt.includes("2")) {
+        resposta = respostasElite.responsavel(vinculo.nome, projeto_id);
+    } else if (txt.includes("3")) {
+        resposta = respostasElite.desculpas();
+    } else {
+        resposta = respostasElite.fallback(projeto_id);
+    }
+
+    await enviarMensagemMeta(numero, resposta);
 }
 
 // ===============================
-// 🌐 WEBHOOK & HEARTBEAT
+// 🌐 WEBHOOK
 // ===============================
 app.get('/webhook', (req, res) => {
-    const mode = req.query['hub.mode'];
-    const token = req.query['hub.verify_token'];
-    const challenge = req.query['hub.challenge'];
-    if (mode && token === VERIFY_TOKEN) { res.status(200).send(challenge); } else { res.sendStatus(403); }
+    if (req.query['hub.verify_token'] === VERIFY_TOKEN) {
+        return res.send(req.query['hub.challenge']);
+    }
+    res.sendStatus(403);
 });
 
 app.post('/webhook', async (req, res) => {
-    const entry = req.body.entry?.[0];
-    const changes = entry?.changes?.[0]?.value;
-    const msg = changes?.messages?.[0];
-    
-    if (!msg || !msg.from) {
-        return res.sendStatus(200);
-    }
+    const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+
+    if (!msg || !msg.from) return res.sendStatus(200);
 
     if (!mensagensProcessadas.has(msg.id)) {
         mensagensProcessadas.add(msg.id);
-        await processarMensagemRecebida(msg.from, msg.text?.body || msg.button?.text, msg.type);
+        await processarMensagemRecebida(
+            msg.from,
+            msg.text?.body,
+            msg.type
+        );
     }
+
     res.sendStatus(200);
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`🚀 Elite Bot Rodando na porta ${PORT}`));
+// ===============================
+app.listen(process.env.PORT || 10000, () => {
+    console.log("🚀 BOT RODANDO");
+});
