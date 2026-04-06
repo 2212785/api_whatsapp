@@ -31,7 +31,7 @@ const db = getDatabase(firebaseApp);
 const mensagensProcessadas = new Set();
 
 // ===============================
-// 🔥 FUNÇÃO PADRÃO (CRÍTICA)
+// 🔥 NORMALIZAR TELEFONE
 // ===============================
 function normalizarNumero(numero) {
     let n = numero.replace(/\D/g, "");
@@ -42,10 +42,15 @@ function normalizarNumero(numero) {
 }
 
 // ===============================
-// 🔗 LINK (SEM GLOBAL)
+// 🔗 LINK (100% SEGURO)
 // ===============================
 const obterLink = (idProjeto) => {
-    return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):* \nhttps://2212785.github.io/Agendamentos/?id=${idProjeto}`;
+    if (!idProjeto || idProjeto === "geral") {
+        console.log("❌ ERRO LINK: projeto inválido:", idProjeto);
+        return "\n\n⚠️ Erro ao gerar link. Fale com o suporte.";
+    }
+
+    return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idProjeto}`;
 };
 
 const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *breve período*!";
@@ -145,12 +150,18 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
             };
         }
 
-        await axios.post(`https://graph.facebook.com/v21.0/${PHONE_ID}/messages`, data, {
-            headers: {
-                Authorization: `Bearer ${META_TOKEN}`,
-                "Content-Type": "application/json"
+        await axios.post(
+            `https://graph.facebook.com/v21.0/${PHONE_ID}/messages`,
+            data,
+            {
+                headers: {
+                    Authorization: `Bearer ${META_TOKEN}`,
+                    "Content-Type": "application/json"
+                }
             }
-        });
+        );
+
+        console.log("📤 Mensagem enviada para:", to);
 
     } catch (err) {
         console.error("❌ ERRO WHATS:", err.response?.data || err.message);
@@ -163,6 +174,8 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text") {
 app.post('/disparar-template', async (req, res) => {
     const { telefone, nome_formando, escola, projeto_id } = req.body;
 
+    console.log("📤 DISPARO:", req.body);
+
     if (!telefone || !nome_formando || !projeto_id) {
         return res.status(400).send({ error: "Dados incompletos" });
     }
@@ -170,11 +183,13 @@ app.post('/disparar-template', async (req, res) => {
     try {
         const numero = normalizarNumero(telefone);
 
+        // envia template
         await enviarMensagemMeta(numero, {
             criança: nome_formando,
             escola
         }, "template");
 
+        // salva vínculo correto
         await set(ref(db, `vinculo_projeto/${numero}`), {
             projeto_id,
             nome: nome_formando,
@@ -187,6 +202,7 @@ app.post('/disparar-template', async (req, res) => {
         res.send({ ok: true });
 
     } catch (e) {
+        console.error("❌ ERRO DISPARO:", e);
         res.status(500).send({ error: "Erro disparo" });
     }
 });
@@ -198,40 +214,48 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
     const numero = normalizarNumero(from);
     const txt = (texto || "").toLowerCase().trim();
 
-    console.log("📲 Recebido:", numero);
+    console.log("📲 Recebido:", numero, "| Texto:", txt);
 
-    const snap = await get(ref(db, `vinculo_projeto/${numero}`));
+    try {
+        const snap = await get(ref(db, `vinculo_projeto/${numero}`));
 
-    if (!snap.exists()) {
-        console.log("❌ SEM VÍNCULO");
-        return;
+        if (!snap.exists()) {
+            console.log("❌ SEM VÍNCULO → respondendo fallback");
+            await enviarMensagemMeta(numero, "Olá! Não localizei seu cadastro.");
+            return;
+        }
+
+        const vinculo = snap.val();
+        const projeto_id = vinculo.projeto_id;
+
+        if (!projeto_id || projeto_id === "geral") {
+            console.log("❌ PROJETO INVÁLIDO:", vinculo);
+
+            await enviarMensagemMeta(numero, "Erro interno. Fale com o suporte.");
+            return;
+        }
+
+        console.log("✅ Projeto correto:", projeto_id);
+
+        let resposta;
+
+        if (tipo === "audio") {
+            resposta = respostasElite.audio(projeto_id);
+        } else if (txt === "1" || txt.includes("sou eu")) {
+            resposta = respostasElite.formando(vinculo.nome, projeto_id);
+        } else if (txt === "2" || txt.includes("responsavel")) {
+            resposta = respostasElite.responsavel(vinculo.nome, projeto_id);
+        } else if (txt === "3") {
+            resposta = respostasElite.desculpas();
+        } else {
+            resposta = respostasElite.fallback(projeto_id);
+        }
+
+        await enviarMensagemMeta(numero, resposta);
+
+    } catch (e) {
+        console.error("❌ ERRO PROCESSAMENTO:", e);
     }
-
-    const vinculo = snap.val();
-    const projeto_id = vinculo.projeto_id;
-
-    if (!projeto_id || projeto_id === "geral") {
-        console.log("❌ PROJETO INVÁLIDO:", vinculo);
-        return;
-    }
-
-    console.log("✅ Projeto correto:", projeto_id);
-
-    let resposta;
-
-    if (tipo === "audio") {
-        resposta = respostasElite.audio(projeto_id);
-    } else if (txt.includes("1")) {
-        resposta = respostasElite.formando(vinculo.nome, projeto_id);
-    } else if (txt.includes("2")) {
-        resposta = respostasElite.responsavel(vinculo.nome, projeto_id);
-    } else if (txt.includes("3")) {
-        resposta = respostasElite.desculpas();
-    } else {
-        resposta = respostasElite.fallback(projeto_id);
-    }
-
-    await enviarMensagemMeta(numero, resposta);
 }
 
 // ===============================
@@ -251,6 +275,7 @@ app.post('/webhook', async (req, res) => {
 
     if (!mensagensProcessadas.has(msg.id)) {
         mensagensProcessadas.add(msg.id);
+
         await processarMensagemRecebida(
             msg.from,
             msg.text?.body,
