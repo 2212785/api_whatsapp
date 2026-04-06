@@ -76,7 +76,6 @@ const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *b
 const respostasElite = {
     formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis para você conhecer pessoalmente.` + avisoTempo + obterLink(id),
     
-    // responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + avisoTempo + obterLink(id),
     responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + avisoTempo + obterLink(id),
     
     parente_proximo: (criança, id) => `Entendido! 😊 Informamos que o material fotográfico da formatura da(o) ${criança} já está disponível e ficou maravilhoso. Caso você não seja o responsável direto, pedimos a gentileza de encaminhar esta mensagem a ele(a) para que possamos agendar a visita.` + avisoTempo + obterLink(id),
@@ -85,7 +84,6 @@ const respostasElite = {
     
     duvida_motivo: (escola, id) => `Estamos entrando em contato para apresentar o material pronto da formatura da Escola ${escola} 📸\n\nAgendamos as visitas para que você veja as fotos pessoalmente e sem compromisso.` + avisoTempo + obterLink(id),
     
-    // duvida_preco: (id) => `Fique tranquilo/a! 😊 Os valores são acessíveis e temos condições de pagamento incríveis que cabem no seu bolso 😊. O representante explicará tudo detalhadamente na visita, que é totalmente sem compromisso!` + avisoTempo + obterLink(id),
     duvida_preco: (id) => `🤖 Como sou um assistente virtual, eu **não consigo informar valores, mas fique tranquilo(a)! 😊 Os valores são acessíveis e temos condições de pagamento incríveis que cabem no seu bolso 😊. O representante explicará tudo detalhadamente na visita, que é totalmente sem compromisso!` + avisoTempo + obterLink(id),
     
     duvida_financeiro: (id) => `Fique tranquilo(a)! 😊 Nosso objetivo é que você conheça esse trabalho maravilhoso. Temos condições especiais para quem está desempregado ou com restrições. Agende sua visita sem compromisso e converse com nosso representante!` + avisoTempo + obterLink(id),
@@ -124,7 +122,6 @@ const respostasElite = {
     
     audio: (id) => `Olá! 🤖 Como sou um assistente virtual, eu **não consigo ouvir áudios**. \n\nComo estaremos na cidade por *poucos dias*, por favor, use o link para garantir seu horário:` + obterLink(id),
 
-    // remover: (id) => `Entendido 👍\n\nPedimos desculpas pelo incômodo. Informamos que vamos excluir seus dados de nosso cadastro imediatamente. Caso mude de ideia e queira conhecer o material, basta realizar o agendamento da visita pelo link abaixo 😊` + avisoTempo + obterLink(id),
     remover: (id) => `Entendemos. Estaremos excluindo seu contato do nosso cadastro. As fotos serão destruídas e descartadas e os arquivos apagados para garantir a total privacidade da sua família 😊. Se mudar de idéia nos próximos dias estaremos á disposição!` + avisoTempo + obterLink(id),
 
     desculpas: () => `Obrigado pelo retorno 👍\n\nVamos registrar e corrigir nosso contato. Pedimos desculpas pelo inconveniente e agradecemos sua atenção 😊`,
@@ -135,7 +132,6 @@ const respostasElite = {
 // ===============================
 // 📤 ENVIO WHATSAPP
 // ===============================
-// CORREÇÃO: Adicionado o parâmetro 'usuario' para salvar no nó correto do painel
 async function enviarMensagemMeta(to, conteudo, tipo = "text", usuario = "Evanio") {
     try {
         let data;
@@ -185,7 +181,6 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text", usuario = "Evanio
 
         console.log("📤 Mensagem enviada para:", to);
 
-        // CORREÇÃO: Salva no nó do usuário para o painel.html multiusuário funcionar
         const numeroLimpo = to.replace(/\D/g, "");
         await set(ref(db, `respostas/${usuario}/${numeroLimpo}/${Date.now()}`), {
             mensagem: textoParaLog,
@@ -202,8 +197,6 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text", usuario = "Evanio
 // 🚀 DISPARO
 // ===============================
 app.post('/disparar-template', async (req, res) => {
-    // const { telefone, nome_formando, escola, projeto_id } = req.body;
-    // CORREÇÃO: Captura o 'usuario' enviado pelo index.html
     const { telefone, nome_formando, escola, projeto_id, usuario } = req.body;
 
     console.log("📤 DISPARO:", req.body);
@@ -215,18 +208,16 @@ app.post('/disparar-template', async (req, res) => {
     try {
         const numero = normalizarNumero(telefone);
 
-        // envia template - CORREÇÃO: Passando o usuário
         await enviarMensagemMeta(numero, {
             criança: nome_formando,
             escola
         }, "template", usuario || "Evanio");
 
-        // salva vínculo correto
         await set(ref(db, `vinculo_projeto/${numero}`), {
             projeto_id,
             nome: nome_formando,
             escola,
-            usuario: usuario || "Evanio", // CORREÇÃO: Salva o dono do projeto no vínculo
+            usuario: usuario || "Evanio", 
             data: Date.now()
         });
 
@@ -254,7 +245,6 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
 
         if (!snap.exists()) {
             console.log("❌ SEM VÍNCULO → respondendo fallback");
-            // CORREÇÃO: Fallback usando pasta padrão ou global se necessário
             await enviarMensagemMeta(numero, "Olá! Não localizei seu cadastro.", "text", "Evanio");
             return;
         }
@@ -278,7 +268,8 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             respostaFinal = respostasElite.remover(projeto_id);
         } else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
             respostaFinal = respostasElite.formando(nomeFormando, projeto_id);
-        } else if (txt === "2" || txt.includes("responsavel") || txt.includes("sou o responsável") || txt === "2️⃣") {
+        // } else if (txt === "2" || txt.includes("responsavel") || txt.includes("sou o responsável") || txt === "2️⃣") {
+        } else if (txt === "2" || txt.includes("responsavel") || txt.includes("responsável") || txt.includes("sou o pai") || txt.includes("sou a mãe") || txt.includes("sou a mae") || txt.includes("meu filho") || txt.includes("minha filha") || txt.includes("meu enteado") || txt.includes("minha enteada") || txt === "2️⃣") {
             respostaFinal = respostasElite.responsavel(nomeFormando, projeto_id);
         } else if (txt === "3" || txt.includes("não conheço") || txt === "3️⃣") {
             respostaFinal = respostasElite.desculpas();
@@ -308,7 +299,8 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             respostaFinal = respostasElite.duvida_nao_comprar(projeto_id);
         } else if (txt.includes("quem") || txt.includes("falando") || txt.includes("empresa")) {
             respostaFinal = respostasElite.duvida_quem(escolaCliente, projeto_id);
-        } else if (txt.includes("preço") || txt.includes("valor") || txt.includes("custa") || txt.includes("quanto fica")) {
+        // } else if (txt.includes("preço") || txt.includes("valor") || txt.includes("custa") || txt.includes("quanto fica")) {
+        } else if (txt.includes("preço") || txt.includes("preco") || txt.includes("valor") || txt.includes("custa") || txt.includes("custo") || txt.includes("quanto fica") || txt.includes("qual o valor") || txt.includes("qual o preço")) {
             respostaFinal = respostasElite.duvida_preco(projeto_id);
         } else if (txt.includes("confiavel") || txt.includes("seguro")) {
             respostaFinal = respostasElite.seguranca(escolaCliente, projeto_id);
