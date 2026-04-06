@@ -3,7 +3,7 @@ const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const { initializeApp } = require("firebase/app");
-const { getDatabase, ref, get, set } = require("firebase/database");
+const { getDatabase, ref, get, set, onValue } = require("firebase/database");
 
 // ===============================
 // 🔧 CONFIG
@@ -30,6 +30,17 @@ const db = getDatabase(firebaseApp);
 
 const mensagensProcessadas = new Set();
 
+// Variável para armazenar o ID do projeto que está ativo no sistema globalmente
+let projetoAtivoGlobal = "";
+
+// Sincroniza em tempo real qual projeto você ativou no painel
+onValue(ref(db, "config/projeto_ativo"), (snap) => {
+    if (snap.exists()) {
+        projetoAtivoGlobal = snap.val();
+        console.log(`📌 Projeto Ativo no Sistema: ${projetoAtivoGlobal}`);
+    }
+});
+
 // ===============================
 // 🔥 NORMALIZAR TELEFONE
 // ===============================
@@ -45,12 +56,16 @@ function normalizarNumero(numero) {
 // 🔗 LINK (100% SEGURO)
 // ===============================
 const obterLink = (idProjeto) => {
-    if (!idProjeto || idProjeto === "geral") {
-        console.log("❌ ERRO LINK: projeto inválido:", idProjeto);
+    // CORREÇÃO: Garante que nunca retorne link vazio ou 'geral'. 
+    // Se o ID for inválido, usa o projeto ativo global como backup dinâmico.
+    const idFinal = (idProjeto && idProjeto !== "geral" && idProjeto !== "") ? idProjeto : projetoAtivoGlobal;
+
+    if (!idFinal) {
+        console.log("❌ ERRO LINK: Nenhum projeto ativo encontrado.");
         return "\n\n⚠️ Erro ao gerar link. Fale com o suporte.";
     }
 
-    return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idProjeto}`;
+    return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idFinal}`;
 };
 
 const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *breve período*!";
@@ -243,39 +258,70 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
 
         const vinculo = snap.val();
         const projeto_id = vinculo.projeto_id;
-        const usuarioDono = vinculo.usuario || "Evanio"; // CORREÇÃO: Puxa quem é o dono da conversa
+        const usuarioDono = vinculo.usuario || "Evanio"; 
+        const escolaCliente = vinculo.escola || "sua escola";
+        const nomeFormando = vinculo.nome || "Formando";
 
-        if (!projeto_id || projeto_id === "geral") {
-            console.log("❌ PROJETO INVÁLIDO:", vinculo);
-            await enviarMensagemMeta(numero, "Erro interno. Fale com o suporte.", "text", usuarioDono);
-            return;
-        }
+        console.log("✅ Projeto vinculado:", projeto_id, "| Usuário:", usuarioDono);
 
-        console.log("✅ Projeto correto:", projeto_id, "| Usuário:", usuarioDono);
+        let respostaFinal = "";
 
-        let resposta;
-
+        // ===============================
+        // 🧠 LÓGICA DE INTELIGÊNCIA (PALAVRAS-CHAVE)
+        // ===============================
         if (tipo === "audio") {
-            resposta = respostasElite.audio(projeto_id);
+            respostaFinal = respostasElite.audio(projeto_id);
+        } else if (txt.includes("não quero") || txt.includes("nao quero") || txt.includes("remover") || txt.includes("pare")) {
+            respostaFinal = respostasElite.remover(projeto_id);
         } else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
-            resposta = respostasElite.formando(vinculo.nome, projeto_id);
+            respostaFinal = respostasElite.formando(nomeFormando, projeto_id);
         } else if (txt === "2" || txt.includes("responsavel") || txt === "2️⃣") {
-            resposta = respostasElite.responsavel(vinculo.nome, projeto_id);
+            respostaFinal = respostasElite.responsavel(nomeFormando, projeto_id);
         } else if (txt === "3" || txt.includes("não conheço") || txt === "3️⃣") {
-            resposta = respostasElite.desculpas();
+            respostaFinal = respostasElite.desculpas();
+        } else if (txt.includes("sobrinha") || txt.includes("sobrinho") || txt.includes("afilhada") || txt.includes("afilhado") || txt.includes("neto") || txt.includes("neta")) {
+            respostaFinal = respostasElite.parente_proximo(nomeFormando, projeto_id);
+        } else if (txt.includes("digital") || txt.includes("por email") || txt.includes("arquivo")) {
+            respostaFinal = respostasElite.duvida_qualidade_digital(projeto_id);
+        } else if (txt.includes("já comprei") || txt.includes("ja comprei") || txt.includes("já tenho")) {
+            respostaFinal = respostasElite.ja_tem_fotos(escolaCliente, projeto_id);
+        } else if (txt.includes("na hora") || txt.includes("decidir depois")) {
+            respostaFinal = respostasElite.duvida_decisao_hora(projeto_id);
+        } else if (txt.includes("entrada") || txt.includes("dar entrada")) {
+            respostaFinal = respostasElite.duvida_entrada(projeto_id);
+        } else if (txt.includes("limite") || txt.includes("cartão")) {
+            respostaFinal = respostasElite.duvida_limite_cartao(projeto_id);
+        } else if (txt.includes("nome sujo") || txt.includes("spc") || txt.includes("serasa")) {
+            respostaFinal = respostasElite.duvida_nome_sujo(projeto_id);
+        } else if (txt.includes("viajando") || txt.includes("fora da cidade")) {
+            respostaFinal = respostasElite.duvida_viajando(projeto_id);
+        } else if (txt.includes("trabalho") || txt.includes("sem tempo") || txt.includes("corrido") || txt.includes("horário")) {
+            respostaFinal = respostasElite.duvida_tempo(projeto_id);
+        } else if (txt.includes("dinheiro") || txt.includes("condição") || txt.includes("desempregado")) {
+            respostaFinal = respostasElite.duvida_financeiro(projeto_id);
+        } else if (txt.includes("avulsa") || txt.includes("comprar uma")) {
+            respostaFinal = respostasElite.duvida_avulsa(projeto_id);
+        } else if (txt.includes("se eu não comprar") || txt.includes("sobrar")) {
+            respostaFinal = respostasElite.duvida_nao_comprar(projeto_id);
+        } else if (txt.includes("quem") || txt.includes("falando") || txt.includes("empresa")) {
+            respostaFinal = respostasElite.duvida_quem(escolaCliente, projeto_id);
+        } else if (txt.includes("preço") || txt.includes("valor") || txt.includes("custa")) {
+            respostaFinal = respostasElite.duvida_preco(projeto_id);
+        } else if (txt.includes("confiavel") || txt.includes("seguro")) {
+            respostaFinal = respostasElite.seguranca(escolaCliente, projeto_id);
         } else {
-            resposta = respostasElite.fallback(projeto_id);
+            respostaFinal = respostasElite.fallback(projeto_id);
         }
 
-        // CORREÇÃO: Salva a mensagem recebida do cliente na pasta do usuário dono
+        // SALVA MENSAGEM DO CLIENTE
         await set(ref(db, `respostas/${usuarioDono}/${numero}/${Date.now()}`), {
             mensagem: tipo === "audio" ? "[ÁUDIO ENVIADO]" : texto,
             tipo: "CLIENTE",
             data: new Date().toLocaleString('pt-BR')
         });
 
-        // CORREÇÃO: Bot responde usando a pasta do usuário dono
-        await enviarMensagemMeta(numero, resposta, "text", usuarioDono);
+        // BOT RESPONDE
+        await enviarMensagemMeta(numero, respostaFinal, "text", usuarioDono);
 
     } catch (e) {
         console.error("❌ ERRO PROCESSAMENTO:", e);
@@ -293,7 +339,9 @@ app.get('/webhook', (req, res) => {
 });
 
 app.post('/webhook', async (req, res) => {
-    const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const entry = req.body.entry?.[0];
+    const changes = entry?.changes?.[0]?.value;
+    const msg = changes?.messages?.[0];
 
     if (!msg || !msg.from) return res.sendStatus(200);
 
@@ -302,7 +350,7 @@ app.post('/webhook', async (req, res) => {
 
         await processarMensagemRecebida(
             msg.from,
-            msg.text?.body,
+            msg.text?.body || msg.button?.text,
             msg.type
         );
     }
