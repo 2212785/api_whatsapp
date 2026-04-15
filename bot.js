@@ -1,4 +1,4 @@
-require('dotenv').config();   
+require('dotenv').config();    
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -65,11 +65,41 @@ const obterLink = (idProjeto) => {
 const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *breve período*!";
 
 // ===============================
+// 📸 IMAGENS PROMOCIONAIS
+// ===============================
+// Imagem oficial da campanha AGENDOU GANHOU (genérica para todos os projetos)
+const imgAgendouGanhou = "https://i.ibb.co/vzR0yFp/agendou-ganhou-brinde-promo.png"; 
+
+// ===============================
 // 💬 RESPOSTAS
 // ===============================
 const respostasElite = {
-    formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis para você conhecer pessoalmente.` + avisoTempo + obterLink(id),
-    responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + avisoTempo + obterLink(id),
+    // RESPOSTAS SUBSTITUÍDAS (COMENTADAS) - INÍCIO
+    // formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis para você conhecer pessoalmente.` + avisoTempo + obterLink(id),
+    // responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + avisoTempo + obterLink(id),
+    // RESPOSTAS SUBSTITUÍDAS (COMENTADAS) - FIM
+
+    // NOVAS RESPOSTAS DINÂMICAS (BUSCANDO ESCOLA DO FIREBASE NA LEGENDA) - INÍCIO
+    formando: (criança, id, escola) => {
+        return {
+            tipo: "image",
+            url: imgAgendouGanhou,
+            caption: `Maravilha, ${criança}! 😊 Suas fotos da escola *${escola}* ficaram lindas!` +
+                     `\n\n🔥 *AGENDOU GANHOU!*\n\nAgendando sua visita (totalmente sem compromisso), você já *ganha automaticamente um brinde exclusivo* com sua foto, que será entregue pelo nosso representante na visita.` +
+                     avisoTempo + obterLink(id)
+        };
+    },
+    responsavel: (criança, id, escola) => {
+        return {
+            tipo: "image",
+            url: imgAgendouGanhou,
+            caption: `Entendido! 😊 As fotos do(a) ${criança} na escola *${escola}* ficaram maravilhosas!` +
+                     `\n\n🔥 *AGENDOU GANHOU!*\n\nAgendando sua visita (totalmente sem compromisso), você já *ganha automaticamente um brinde exclusivo* com a foto do formando, entregue em mãos na visita.` +
+                     avisoTempo + obterLink(id)
+        };
+    },
+    // NOVAS RESPOSTAS DINÂMICAS - FIM
+
     parente_proximo: (criança, id) => `Entendido! 😊 Informamos que o material fotográfico da formatura da(o) ${criança} já está disponível e ficou maravilhoso. Caso você não seja o responsável direto, pedimos a gentileza de encaminhar esta mensagem a ele(a) para que possamos agendar a visita.` + avisoTempo + obterLink(id),
     duvida_quem: (escola, id) => `Olá 😊\n\nSomos da equipe oficial de fotografia da formatura da Escola ${escola}.\n\nEste canal serve para identificar os formandos e agendar as visitas de entrega.` + avisoTempo + obterLink(id),
     duvida_motivo: (escola, id) => `Estamos entrando em contato para apresentar o material pronto da formatura da Escola ${escola} 📸\n\nAgendamos as visitas para que você veja as fotos pessoalmente e sem compromisso.` + avisoTempo + obterLink(id),
@@ -104,9 +134,16 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text", usuario = "Evanio
     try {
         let data;
         let textoParaLog = "";
+
         if (tipo === "text") {
             data = { messaging_product: "whatsapp", to, type: "text", text: { body: conteudo } };
             textoParaLog = conteudo;
+        } else if (tipo === "image") {
+            data = {
+                messaging_product: "whatsapp", to, type: "image",
+                image: { url: conteudo.url, caption: conteudo.caption }
+            };
+            textoParaLog = `[IMAGEM PROMOCIONAL: ${conteudo.caption}]`;
         } else {
             const nome = conteudo.criança || "Cliente";
             const escola = conteudo.escola || "sua escola";
@@ -119,9 +156,11 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text", usuario = "Evanio
                 }
             };
         }
+
         await axios.post(`https://graph.facebook.com/v21.0/${PHONE_ID}/messages`, data, {
             headers: { Authorization: `Bearer ${META_TOKEN}`, "Content-Type": "application/json" }
         });
+
         const numeroLimpo = to.replace(/\D/g, "");
         await set(ref(db, `respostas/${usuario}/${numeroLimpo}/${Date.now()}`), {
             mensagem: textoParaLog, tipo: "BOT", data: new Date().toLocaleString('pt-BR')
@@ -154,25 +193,20 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
     const numero = normalizarNumero(from);
     const txt = (texto || "").toLowerCase().trim();
     
-    // Função interna para detectar intenção (Inteligência Artificial por mapeamento semântico)
     const detectarIntencao = (frase) => {
-        // Variações de Desinteresse (Todas caem em 'remover')
         const desinteresse = ["não quero", "nao quero", "sem interesse", "não me interessa", "não estou interessado", "nao estou interessada", "apagar", "remover", "pare", "não pretendo comprar", "não tenho interesse"];
         if (desinteresse.some(termo => frase.includes(termo))) return "REMOVER";
 
-        // Variações de Responsável (Opção 2)
         const responsavel = ["pai", "mãe", "mae", "responsável", "sou eu o responsavel", "meu filho", "minha filha", "de que se trata", "sobre o que seria", "do que se trata", "enteado", "enteada"];
         if (frase === "2" || responsavel.some(termo => frase.includes(termo))) return "RESPONSAVEL";
 
-        // Variações de Preço/Valor
         const preco = ["preço", "valor", "quanto", "custa", "fica quanto", "qual o custo", "valores"];
         if (preco.some(termo => frase.includes(termo))) return "PRECO";
 
-        // Variações de Origem (Como conseguiu meu número)
         const origem = ["conseguiu meu", "meu número", "meu contato", "quem passou", "quem deu", "quem forneceu"];
         if (origem.some(termo => frase.includes(termo))) return "ORIGEM";
 
-        return null; // Caso não identifique nada óbvio
+        return null;
     };
 
     const intencao = detectarIntencao(txt);
@@ -191,15 +225,32 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
         const nomeFormando = vinculo.nome || "Formando";
 
         let respostaFinal = "";
+        let tipoEnvio = "text"; 
 
         if (tipo === "audio") {
             respostaFinal = respostasElite.audio(projeto_id);
         } else if (intencao === "REMOVER") {
             respostaFinal = respostasElite.remover(projeto_id);
         } else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
-            respostaFinal = respostasElite.formando(nomeFormando, projeto_id);
+            // PASSANDO A ESCOLA DO FIREBASE PARA A RESPOSTA - INÍCIO
+            const retorno = respostasElite.formando(nomeFormando, projeto_id, escolaCliente);
+            // PASSANDO A ESCOLA DO FIREBASE PARA A RESPOSTA - FIM
+            if (retorno.tipo === "image") {
+                respostaFinal = retorno;
+                tipoEnvio = "image";
+            } else {
+                respostaFinal = retorno;
+            }
         } else if (intencao === "RESPONSAVEL") {
-            respostaFinal = respostasElite.responsavel(nomeFormando, projeto_id);
+            // PASSANDO A ESCOLA DO FIREBASE PARA A RESPOSTA - INÍCIO
+            const retorno = respostasElite.responsavel(nomeFormando, projeto_id, escolaCliente);
+            // PASSANDO A ESCOLA DO FIREBASE PARA A RESPOSTA - FIM
+            if (retorno.tipo === "image") {
+                respostaFinal = retorno;
+                tipoEnvio = "image";
+            } else {
+                respostaFinal = retorno;
+            }
         } else if (txt === "3" || txt.includes("não conheço") || txt === "3️⃣") {
             respostaFinal = respostasElite.desculpas();
         } else if (txt.includes("sobrinha") || txt.includes("sobrinho") || txt.includes("afilhada") || txt.includes("afilhado") || txt.includes("neto") || txt.includes("neta")) {
@@ -244,7 +295,8 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             data: new Date().toLocaleString('pt-BR')
         });
 
-        await enviarMensagemMeta(numero, respostaFinal, "text", usuarioDono);
+        await enviarMensagemMeta(numero, respostaFinal, tipoEnvio, usuarioDono);
+
     } catch (e) {
         console.error("❌ ERRO PROCESSAMENTO:", e);
     }
