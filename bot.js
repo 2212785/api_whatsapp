@@ -1,4 +1,4 @@
-require('dotenv').config();    
+require('dotenv').config();      
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -133,7 +133,7 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text", usuario = "Evanio
             data = { messaging_product: "whatsapp", to, type: "text", text: { body: conteudo } };
             textoParaLog = conteudo;
         } else if (tipo === "image") {
-            // Ajuste para garantir que o objeto de imagem seja enviado corretamente
+            // Garantindo que o payload de imagem esteja correto conforme documentação Meta
             data = {
                 messaging_product: "whatsapp", 
                 to: to, 
@@ -143,7 +143,7 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text", usuario = "Evanio
                     caption: conteudo.caption 
                 }
             };
-            textoParaLog = `[IMAGEM PROMOCIONAL: ${conteudo.caption}]`;
+            textoParaLog = `[IMAGEM: ${conteudo.caption}]`;
         } else {
             const nome = conteudo.criança || "Cliente";
             const escola = conteudo.escola || "sua escola";
@@ -157,7 +157,7 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text", usuario = "Evanio
             };
         }
 
-        await axios.post(`https://graph.facebook.com/v21.0/${PHONE_ID}/messages`, data, {
+        const response = await axios.post(`https://graph.facebook.com/v21.0/${PHONE_ID}/messages`, data, {
             headers: { Authorization: `Bearer ${META_TOKEN}`, "Content-Type": "application/json" }
         });
 
@@ -233,7 +233,7 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             respostaFinal = respostasElite.remover(projeto_id);
         } else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
             const retorno = respostasElite.formando(nomeFormando, projeto_id, escolaCliente);
-            if (retorno && retorno.tipo === "image") {
+            if (retorno && typeof retorno === 'object' && retorno.tipo === "image") {
                 respostaFinal = retorno;
                 tipoEnvio = "image";
             } else {
@@ -241,7 +241,7 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             }
         } else if (intencao === "RESPONSAVEL") {
             const retorno = respostasElite.responsavel(nomeFormando, projeto_id, escolaCliente);
-            if (retorno && retorno.tipo === "image") {
+            if (retorno && typeof retorno === 'object' && retorno.tipo === "image") {
                 respostaFinal = retorno;
                 tipoEnvio = "image";
             } else {
@@ -256,8 +256,6 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
         } else if (txt.includes("já comprei") || txt.includes("ja comprei") || txt.includes("já tenho")) {
             respostaFinal = respostasElite.ja_tem_fotos(escolaCliente, projeto_id);
         } else if (txt.includes("na hora") || txt.includes("decidir depois")) {
-            // CORREÇÃO: Removido o erro de referência "respostasFinal.duvida_decisao_hora" (COMENTADO ABAIXO)
-            // respostaFinal = respostasFinal.duvida_decisao_hora(projeto_id);
             respostaFinal = respostasElite.duvida_decisao_hora(projeto_id);
         } else if (txt.includes("entrada") || txt.includes("dar entrada")) {
             respostaFinal = respostasElite.duvida_entrada(projeto_id);
@@ -287,12 +285,14 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             respostaFinal = respostasElite.fallback(projeto_id);
         }
 
+        // Registro da mensagem do cliente no Firebase
         await set(ref(db, `respostas/${usuarioDono}/${numero}/${Date.now()}`), {
             mensagem: tipo === "audio" ? "[ÁUDIO ENVIADO]" : texto,
             tipo: "CLIENTE",
             data: new Date().toLocaleString('pt-BR')
         });
 
+        // Envio da resposta processada
         await enviarMensagemMeta(numero, respostaFinal, tipoEnvio, usuarioDono);
 
     } catch (e) {
@@ -313,8 +313,10 @@ app.post('/webhook', async (req, res) => {
     const changes = entry?.changes?.[0]?.value;
     const msg = changes?.messages?.[0];
     if (!msg || !msg.from) return res.sendStatus(200);
+    
     if (!mensagensProcessadas.has(msg.id)) {
         mensagensProcessadas.add(msg.id);
+        // Pequeno delay para garantir processamento sequencial se necessário
         await processarMensagemRecebida(msg.from, msg.text?.body || msg.button?.text, msg.type);
     }
     res.sendStatus(200);
