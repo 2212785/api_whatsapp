@@ -74,9 +74,20 @@ const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *b
 // 💬 RESPOSTAS
 // ===============================
 const respostasElite = {
-    formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis para você conhecer pessoalmente.` + avisoTempo + obterLink(id),
+    // RESPOSTAS SUBSTITUÍDAS (COMENTADAS) - INÍCIO
+    // formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis para você conhecer pessoalmente.` + avisoTempo + obterLink(id),
+    // responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + avisoTempo + obterLink(id),
+    // RESPOSTAS SUBSTITUÍDAS (COMENTADAS) - FIM
+
+    // NOVAS RESPOSTAS COM "AGENDOU GANHOU" (TEXTO FORTE) - INÍCIO
+    formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis.` + 
+                               `\n\n🎁 *AGENDOU GANHOU!* \nAgendando sua visita (totalmente sem compromisso), você já *ganha automaticamente um brinde exclusivo* com a foto do formando, que será entregue pelo nosso representante na visita.` + 
+                               avisoTempo + obterLink(id),
     
-    responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + avisoTempo + obterLink(id),
+    responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + 
+                                  `\n\n🎁 *AGENDOU GANHOU!* \nAgendando sua visita (totalmente sem compromisso), você já *ganha automaticamente um brinde exclusivo* com a foto do formando, entregue em mãos na visita.` + 
+                                  avisoTempo + obterLink(id),
+    // NOVAS RESPOSTAS COM "AGENDOU GANHOU" - FIM
     
     parente_proximo: (criança, id) => `Entendido! 😊 Informamos que o material fotográfico da formatura da(o) ${criança} já está disponível e ficou maravilhoso. Caso você não seja o responsável direto, pedimos a gentileza de encaminhar esta mensagem a ele(a) para que possamos agendar a visita.` + avisoTempo + obterLink(id),
 
@@ -268,7 +279,6 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             respostaFinal = respostasElite.remover(projeto_id);
         } else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
             respostaFinal = respostasElite.formando(nomeFormando, projeto_id);
-        // } else if (txt === "2" || txt.includes("responsavel") || txt.includes("sou o responsável") || txt === "2️⃣") {
         } else if (txt === "2" || txt.includes("responsavel") || txt.includes("responsável") || txt.includes("sou o pai") || txt.includes("sou a mãe") || txt.includes("sou a mae") || txt.includes("meu filho") || txt.includes("minha filha") || txt.includes("meu enteado") || txt.includes("minha enteada") || txt === "2️⃣") {
             respostaFinal = respostasElite.responsavel(nomeFormando, projeto_id);
         } else if (txt === "3" || txt.includes("não conheço") || txt === "3️⃣") {
@@ -299,7 +309,6 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             respostaFinal = respostasElite.duvida_nao_comprar(projeto_id);
         } else if (txt.includes("quem") || txt.includes("falando") || txt.includes("empresa")) {
             respostaFinal = respostasElite.duvida_quem(escolaCliente, projeto_id);
-        // } else if (txt.includes("preço") || txt.includes("valor") || txt.includes("custa") || txt.includes("quanto fica")) {
         } else if (txt.includes("preço") || txt.includes("preco") || txt.includes("valor") || txt.includes("custa") || txt.includes("custo") || txt.includes("quanto fica") || txt.includes("qual o valor") || txt.includes("qual o preço")) {
             respostaFinal = respostasElite.duvida_preco(projeto_id);
         } else if (txt.includes("confiavel") || txt.includes("seguro")) {
