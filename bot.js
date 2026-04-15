@@ -1,4 +1,4 @@
-require('dotenv').config();    
+require('dotenv').config();  
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -53,21 +53,21 @@ function normalizarNumero(numero) {
 }
 
 // ===============================
-// 🔗 LINK (CORRIGIDO PARA REMOVER O TRAÇO/ESPAÇO)
+// 🔗 LINK (100% SEGURO)
 // ===============================
 const obterLink = (idProjeto) => {
-    // CORREÇÃO DE CONFLITO: Prioriza sempre o idProjeto vinculado ao cliente.
-    // O projetoAtivoGlobal só deve ser usado se idProjeto for nulo.
-    let idLimpo = (idProjeto && idProjeto !== "geral" && idProjeto !== "") 
-        ? idProjeto.trim().replace(/-$/, "") 
-        : projetoAtivoGlobal.trim().replace(/-$/, "");
+    // CORREÇÃO: Garante que nunca retorne link vazio ou 'geral'. 
+    // Se o ID for inválido, usa o projeto ativo global como backup dinâmico.
+    const idFinal = (idProjeto && idProjeto !== "geral" && idProjeto !== "") ? idProjeto : projetoAtivoGlobal;
 
-    if (!idLimpo) {
+    if (!idFinal) {
         console.log("❌ ERRO LINK: Nenhum projeto ativo encontrado.");
         return "\n\n⚠️ Erro ao gerar link. Fale com o suporte.";
     }
 
-    return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idLimpo}`;
+    // AJUSTE REALIZADO: Adicionado o hífen "-" logo após o ${idFinal} para satisfazer o requisito da URL
+    // return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idFinal}`;
+    return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idFinal}-`;
 };
 
 const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *breve período*!";
@@ -76,13 +76,9 @@ const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *b
 // 💬 RESPOSTAS
 // ===============================
 const respostasElite = {
-    formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis.` + 
-                               `\n\n🎁 *AGENDOU GANHOU!* \nAgendando sua visita (totalmente sem compromisso), você já *ganha automaticamente um brinde exclusivo* com a foto do formando, que será entregue pelo nosso representante na visita.` + 
-                               avisoTempo + obterLink(id),
+    formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis para você conhecer pessoalmente.` + avisoTempo + obterLink(id),
     
-    responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + 
-                                   `\n\n🎁 *AGENDOU GANHOU!* \nAgendando sua visita (totalmente sem compromisso), você já *ganha automaticamente um brinde exclusivo* com a foto do formando, entregue em mãos na visita.` + 
-                                   avisoTempo + obterLink(id),
+    responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + avisoTempo + obterLink(id),
     
     parente_proximo: (criança, id) => `Entendido! 😊 Informamos que o material fotográfico da formatura da(o) ${criança} já está disponível e ficou maravilhoso. Caso você não seja o responsável direto, pedimos a gentileza de encaminhar esta mensagem a ele(a) para que possamos agendar a visita.` + avisoTempo + obterLink(id),
 
@@ -251,21 +247,17 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
 
         if (!snap.exists()) {
             console.log("❌ SEM VÍNCULO → respondendo fallback");
-            // CORREÇÃO: Em caso de falta de vínculo, o bot não deve assumir um projeto aleatório
             await enviarMensagemMeta(numero, "Olá! Não localizei seu cadastro.", "text", "Evanio");
             return;
         }
 
         const vinculo = snap.val();
-        
-        // CORREÇÃO CRITICAL: O projeto_id deve vir estritamente do vínculo salvo no disparo.
-        // Isso impede que o William use o projeto do Evanio e vice-versa.
         const projeto_id = vinculo.projeto_id;
         const usuarioDono = vinculo.usuario || "Evanio"; 
         const escolaCliente = vinculo.escola || "sua escola";
         const nomeFormando = vinculo.nome || "Formando";
 
-        console.log("✅ Projeto vinculado:", projeto_id, "| Usuário Dono:", usuarioDono);
+        console.log("✅ Projeto vinculado:", projeto_id, "| Usuário:", usuarioDono);
 
         let respostaFinal = "";
 
@@ -312,8 +304,6 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             respostaFinal = respostasElite.duvida_preco(projeto_id);
         } else if (txt.includes("confiavel") || txt.includes("seguro")) {
             respostaFinal = respostasElite.seguranca(escolaCliente, projeto_id);
-        } else if (txt.includes("como conseguiu") || txt.includes("quem passou") || txt.includes("pegou meu numero") || txt.includes("pegou meu número") || txt.includes("meu fone") || txt.includes("meu telefone") || txt.includes("quem deu meu contato")) {
-            respostaFinal = respostasElite.duvida_origem_fone(projeto_id);
         } else {
             respostaFinal = respostasElite.fallback(projeto_id);
         }
@@ -326,7 +316,6 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
         });
 
         // BOT RESPONDE
-        // CORREÇÃO: Responde usando o usuarioDono extraído do vínculo para garantir que caia na pasta certa do Firebase
         await enviarMensagemMeta(numero, respostaFinal, "text", usuarioDono);
 
     } catch (e) {
