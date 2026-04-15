@@ -1,4 +1,4 @@
-require('dotenv').config();  
+require('dotenv').config();   
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -53,19 +53,19 @@ function normalizarNumero(numero) {
 }
 
 // ===============================
-// 🔗 LINK (100% SEGURO)
+// 🔗 LINK (CORRIGIDO PARA REMOVER O TRAÇO/ESPAÇO)
 // ===============================
 const obterLink = (idProjeto) => {
-    // CORREÇÃO: Garante que nunca retorne link vazio ou 'geral'. 
-    // Se o ID for inválido, usa o projeto ativo global como backup dinâmico.
-    const idFinal = (idProjeto && idProjeto !== "geral" && idProjeto !== "") ? idProjeto : projetoAtivoGlobal;
+    // .trim() remove espaços em branco acidentais; 
+    // .replace(/-$/, "") remove um traço se ele for o último caractere
+    let idLimpo = (idProjeto && idProjeto !== "geral" && idProjeto !== "") ? idProjeto.trim().replace(/-$/, "") : projetoAtivoGlobal.trim().replace(/-$/, "");
 
-    if (!idFinal) {
+    if (!idLimpo) {
         console.log("❌ ERRO LINK: Nenhum projeto ativo encontrado.");
         return "\n\n⚠️ Erro ao gerar link. Fale com o suporte.";
     }
 
-    return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idFinal}`;
+    return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idLimpo}`;
 };
 
 const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *breve período*!";
