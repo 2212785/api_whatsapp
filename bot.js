@@ -74,12 +74,7 @@ const imgAgendouGanhou = "https://i.ibb.co/vzR0yFp/agendou-ganhou-brinde-promo.p
 // 💬 RESPOSTAS
 // ===============================
 const respostasElite = {
-    // RESPOSTAS SUBSTITUÍDAS (COMENTADAS) - INÍCIO
-    // formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis para você conhecer pessoalmente.` + avisoTempo + obterLink(id),
-    // responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + avisoTempo + obterLink(id),
-    // RESPOSTAS SUBSTITUÍDAS (COMENTADAS) - FIM
-
-    // NOVAS RESPOSTAS DINÂMICAS (BUSCANDO ESCOLA DO FIREBASE NA LEGENDA) - INÍCIO
+    // RESPOSTAS DINÂMICAS (BUSCANDO ESCOLA DO FIREBASE NA LEGENDA)
     formando: (criança, id, escola) => {
         return {
             tipo: "image",
@@ -98,7 +93,6 @@ const respostasElite = {
                      avisoTempo + obterLink(id)
         };
     },
-    // NOVAS RESPOSTAS DINÂMICAS - FIM
 
     parente_proximo: (criança, id) => `Entendido! 😊 Informamos que o material fotográfico da formatura da(o) ${criança} já está disponível e ficou maravilhoso. Caso você não seja o responsável direto, pedimos a gentileza de encaminhar esta mensagem a ele(a) para que possamos agendar a visita.` + avisoTempo + obterLink(id),
     duvida_quem: (escola, id) => `Olá 😊\n\nSomos da equipe oficial de fotografia da formatura da Escola ${escola}.\n\nEste canal serve para identificar os formandos e agendar as visitas de entrega.` + avisoTempo + obterLink(id),
@@ -139,9 +133,15 @@ async function enviarMensagemMeta(to, conteudo, tipo = "text", usuario = "Evanio
             data = { messaging_product: "whatsapp", to, type: "text", text: { body: conteudo } };
             textoParaLog = conteudo;
         } else if (tipo === "image") {
+            // Ajuste para garantir que o objeto de imagem seja enviado corretamente
             data = {
-                messaging_product: "whatsapp", to, type: "image",
-                image: { url: conteudo.url, caption: conteudo.caption }
+                messaging_product: "whatsapp", 
+                to: to, 
+                type: "image",
+                image: { 
+                    url: conteudo.url, 
+                    caption: conteudo.caption 
+                }
             };
             textoParaLog = `[IMAGEM PROMOCIONAL: ${conteudo.caption}]`;
         } else {
@@ -232,20 +232,16 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
         } else if (intencao === "REMOVER") {
             respostaFinal = respostasElite.remover(projeto_id);
         } else if (txt === "1" || txt.includes("sou eu") || txt === "1️⃣") {
-            // PASSANDO A ESCOLA DO FIREBASE PARA A RESPOSTA - INÍCIO
             const retorno = respostasElite.formando(nomeFormando, projeto_id, escolaCliente);
-            // PASSANDO A ESCOLA DO FIREBASE PARA A RESPOSTA - FIM
-            if (retorno.tipo === "image") {
+            if (retorno && retorno.tipo === "image") {
                 respostaFinal = retorno;
                 tipoEnvio = "image";
             } else {
                 respostaFinal = retorno;
             }
         } else if (intencao === "RESPONSAVEL") {
-            // PASSANDO A ESCOLA DO FIREBASE PARA A RESPOSTA - INÍCIO
             const retorno = respostasElite.responsavel(nomeFormando, projeto_id, escolaCliente);
-            // PASSANDO A ESCOLA DO FIREBASE PARA A RESPOSTA - FIM
-            if (retorno.tipo === "image") {
+            if (retorno && retorno.tipo === "image") {
                 respostaFinal = retorno;
                 tipoEnvio = "image";
             } else {
@@ -260,6 +256,8 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
         } else if (txt.includes("já comprei") || txt.includes("ja comprei") || txt.includes("já tenho")) {
             respostaFinal = respostasElite.ja_tem_fotos(escolaCliente, projeto_id);
         } else if (txt.includes("na hora") || txt.includes("decidir depois")) {
+            // CORREÇÃO: Removido o erro de referência "respostasFinal.duvida_decisao_hora" (COMENTADO ABAIXO)
+            // respostaFinal = respostasFinal.duvida_decisao_hora(projeto_id);
             respostaFinal = respostasElite.duvida_decisao_hora(projeto_id);
         } else if (txt.includes("entrada") || txt.includes("dar entrada")) {
             respostaFinal = respostasElite.duvida_entrada(projeto_id);
