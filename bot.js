@@ -1,4 +1,4 @@
-require('dotenv').config();    
+require('dotenv').config();      
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -63,7 +63,6 @@ const obterLink = (idProjeto) => {
         return "⚠️ Erro ao gerar link. Fale com o suporte.";
     }
 
-    // AJUSTE: O link agora é formatado para vir no TOPO da mensagem quando concatenado
     return `👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idFinal}-\n\n`;
 };
 
@@ -71,7 +70,7 @@ const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *b
 const avisoBrinde = "\n\n🎁 *PRESENTE:* Agendando sua visita agora, você ganha um *brinde exclusivo com a foto do formando* só por nos receber para conhecer o material!";
 
 // ===============================
-// 💬 RESPOSTAS (LINK NO INÍCIO)
+// 💬 RESPOSTAS (ATUALIZADAS)
 // ===============================
 const respostasElite = {
     formando: (criança, id) => obterLink(id) + `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis.` + avisoBrinde + avisoTempo,
@@ -120,6 +119,9 @@ const respostasElite = {
 
     duvida_decisao_hora: (id) => obterLink(id) + `Fique super tranquilo(a)! 😊 A visita é justamente para você conhecer o material com calma e decidir o que for melhor para sua família.` + avisoBrinde + avisoTempo,
     
+    // RESPOSTA PARA QUEM NÃO CONSEGUE AGENDAR
+    erro_agendamento: (id) => obterLink(id) + `Sem problemas! 😊 Vamos tentar novamente? \n\n*IMPORTANTE:* Ao abrir o link, primeiro clique na **DATA** escolhida e depois preencha os outros dados (nome, fone, horário e endereço). Isso garantirá que o sistema valide sua vaga!` + avisoBrinde + avisoTempo,
+
     audio: (id) => `Olá! 🤖 Como sou um assistente virtual, eu **não consigo ouvir áudios**.\n\nLembrando que:\n\n` + obterLink(id) + avisoBrinde + avisoTempo,
 
     remover: (id) => `Entendemos. Estaremos excluindo seu contato do nosso cadastro. As fotos serão destruídas e descartadas e os arquivos apagados para garantir a total privacidade da sua família 😊. Se mudar de idéia nos próximos dias estaremos á disposição!` + avisoTempo,
@@ -269,6 +271,9 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             respostaFinal = respostasElite.responsavel(nomeFormando, projeto_id);
         } else if (txt === "3" || txt.includes("não conheço") || txt === "3️⃣") {
             respostaFinal = respostasElite.desculpas();
+        } else if (txt.includes("não consigo agendar") || txt.includes("não estou conseguindo") || txt.includes("erro no site") || txt.includes("site não funciona") || txt.includes("problema no link") || txt.includes("não deu para agendar") || txt.includes("erro ao agendar")) {
+            // ESSA É A LÓGICA QUE VAI FUNCIONAR PARA AS MENSAGENS DE HOJE
+            respostaFinal = respostasElite.erro_agendamento(projeto_id);
         } else if (txt.includes("sobrinha") || txt.includes("sobrinho") || txt.includes("afilhada") || txt.includes("afilhado") || txt.includes("neto") || txt.includes("neta")) {
             respostaFinal = respostasElite.parente_proximo(nomeFormando, projeto_id);
         } else if (txt.includes("digital") || txt.includes("por email") || txt.includes("arquivo")) {
@@ -295,7 +300,7 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             respostaFinal = respostasElite.duvida_nao_comprar(projeto_id);
         } else if (txt.includes("quem") || txt.includes("falando") || txt.includes("empresa")) {
             respostaFinal = respostasElite.duvida_quem(escolaCliente, projeto_id);
-        } else if (txt.includes("preço") || txt.includes("preco") || txt.includes("valor") || txt.includes("custa") || txt.includes("custo") || txt.includes("quanto fica") || txt.includes("qual o valor") || txt.includes("qual o preço")) {
+        } else if (txt.includes("preço") || txt.includes("preco") || txt.includes("valor") || txt.includes("custa") || txt.includes("quanto fica") || txt.includes("qual o valor")) {
             respostaFinal = respostasElite.duvida_preco(projeto_id);
         } else if (txt.includes("confiavel") || txt.includes("seguro")) {
             respostaFinal = respostasElite.seguranca(escolaCliente, projeto_id);
