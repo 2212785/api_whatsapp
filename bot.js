@@ -1,4 +1,4 @@
-require('dotenv').config();      
+require('dotenv').config();        
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -53,7 +53,7 @@ function normalizarNumero(numero) {
 }
 
 // ===============================
-// 🔗 LINK (100% SEGURO)
+// 🔗 LINK (100% SEGURO) - CORREÇÃO REALIZADA
 // ===============================
 const obterLink = (idProjeto) => {
     const idFinal = (idProjeto && idProjeto !== "geral" && idProjeto !== "") ? idProjeto : projetoAtivoGlobal;
@@ -63,7 +63,9 @@ const obterLink = (idProjeto) => {
         return "⚠️ Erro ao gerar link. Fale com o suporte.";
     }
 
-    return `👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idFinal}-\n\n`;
+    // CORREÇÃO: Removido o hífen "-" extra que estava causando erro no acesso das pessoas
+    // return `👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idFinal}-\n\n`;
+    return `👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idFinal}\n\n`;
 };
 
 const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *breve período*!";
@@ -119,7 +121,6 @@ const respostasElite = {
 
     duvida_decisao_hora: (id) => obterLink(id) + `Fique super tranquilo(a)! 😊 A visita é justamente para você conhecer o material com calma e decidir o que for melhor para sua família.` + avisoBrinde + avisoTempo,
     
-    // RESPOSTA PARA QUEM NÃO CONSEGUE AGENDAR
     erro_agendamento: (id) => obterLink(id) + `Sem problemas! 😊 Vamos tentar novamente? \n\n*IMPORTANTE:* Ao abrir o link, primeiro clique na **DATA** escolhida e depois preencha os outros dados (nome, fone, horário e endereço). Isso garantirá que o sistema valide sua vaga!` + avisoBrinde + avisoTempo,
 
     audio: (id) => `Olá! 🤖 Como sou um assistente virtual, eu **não consigo ouvir áudios**.\n\nLembrando que:\n\n` + obterLink(id) + avisoBrinde + avisoTempo,
@@ -272,7 +273,6 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
         } else if (txt === "3" || txt.includes("não conheço") || txt === "3️⃣") {
             respostaFinal = respostasElite.desculpas();
         } else if (txt.includes("não consigo agendar") || txt.includes("não estou conseguindo") || txt.includes("erro no site") || txt.includes("site não funciona") || txt.includes("problema no link") || txt.includes("não deu para agendar") || txt.includes("erro ao agendar")) {
-            // ESSA É A LÓGICA QUE VAI FUNCIONAR PARA AS MENSAGENS DE HOJE
             respostaFinal = respostasElite.erro_agendamento(projeto_id);
         } else if (txt.includes("sobrinha") || txt.includes("sobrinho") || txt.includes("afilhada") || txt.includes("afilhado") || txt.includes("neto") || txt.includes("neta")) {
             respostaFinal = respostasElite.parente_proximo(nomeFormando, projeto_id);
