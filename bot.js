@@ -1,4 +1,4 @@
-require('dotenv').config();  
+require('dotenv').config();   
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -76,9 +76,11 @@ const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *b
 // 💬 RESPOSTAS
 // ===============================
 const respostasElite = {
-    formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis para você conhecer pessoalmente.` + avisoTempo + obterLink(id),
+    // formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis para você conhecer pessoalmente.` + avisoTempo + obterLink(id),
+    formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis. E olha que legal: *agendando sua visita agora, você já garante um brinde exclusivo* só por nos receber para conhecer o material!` + avisoTempo + obterLink(id),
     
-    responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + avisoTempo + obterLink(id),
+    // responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + avisoTempo + obterLink(id),
+    responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível. E atenção: *só por agendar a visita para conhecer o material, você ganhará um brinde especial!*` + avisoTempo + obterLink(id),
     
     parente_proximo: (criança, id) => `Entendido! 😊 Informamos que o material fotográfico da formatura da(o) ${criança} já está disponível e ficou maravilhoso. Caso você não seja o responsável direto, pedimos a gentileza de encaminhar esta mensagem a ele(a) para que possamos agendar a visita.` + avisoTempo + obterLink(id),
 
