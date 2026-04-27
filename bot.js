@@ -1,4 +1,4 @@
-require('dotenv').config();   
+require('dotenv').config();    
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -56,105 +56,77 @@ function normalizarNumero(numero) {
 // 🔗 LINK (100% SEGURO)
 // ===============================
 const obterLink = (idProjeto) => {
-    // CORREÇÃO: Garante que nunca retorne link vazio ou 'geral'. 
-    // Se o ID for inválido, usa o projeto ativo global como backup dinâmico.
     const idFinal = (idProjeto && idProjeto !== "geral" && idProjeto !== "") ? idProjeto : projetoAtivoGlobal;
 
     if (!idFinal) {
         console.log("❌ ERRO LINK: Nenhum projeto ativo encontrado.");
-        return "\n\n⚠️ Erro ao gerar link. Fale com o suporte.";
+        return "⚠️ Erro ao gerar link. Fale com o suporte.";
     }
 
-    // AJUSTE REALIZADO: Adicionado o hífen "-" logo após o ${idFinal} para satisfazer o requisito da URL
-    // return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idFinal}`;
-    return `\n\n👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idFinal}-`;
+    // AJUSTE: O link agora é formatado para vir no TOPO da mensagem quando concatenado
+    return `👇 *CLIQUE NO LINK E AGENDE SUA VISITA (SEM COMPROMISSO):*\nhttps://2212785.github.io/Agendamentos/?id=${idFinal}-\n\n`;
 };
 
 const avisoTempo = "\n\n⚠️ *AVISO:* Nossa equipe estará na cidade por um *breve período*!";
 const avisoBrinde = "\n\n🎁 *PRESENTE:* Agendando sua visita agora, você ganha um *brinde exclusivo com a foto do formando* só por nos receber para conhecer o material!";
 
 // ===============================
-// 💬 RESPOSTAS
+// 💬 RESPOSTAS (LINK NO INÍCIO)
 // ===============================
 const respostasElite = {
-    // formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis para você conhecer pessoalmente.` + avisoTempo + obterLink(id),
-    formando: (criança, id) => `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis.` + avisoBrinde + avisoTempo + obterLink(id),
+    formando: (criança, id) => obterLink(id) + `Maravilha, ${criança}! 😊 Informamos que as fotos de sua formatura ficaram lindas e já estão disponíveis.` + avisoBrinde + avisoTempo,
     
-    // responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível e ficou maravilhoso.` + avisoTempo + obterLink(id),
-    responsavel: (criança, id) => `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível.` + avisoBrinde + avisoTempo + obterLink(id),
+    responsavel: (criança, id) => obterLink(id) + `Entendido! 😊 Como você é o responsável pelo(a) ${criança}, informamos que o material fotográfico da formatura já está disponível.` + avisoBrinde + avisoTempo,
     
-    // parente_proximo: (criança, id) => `Entendido! 😊 Informamos que o material fotográfico da formatura da(o) ${criança} já está disponível e ficou maravilhoso. Caso você não seja o responsável direto, pedimos a gentileza de encaminhar esta mensagem a ele(a) para que possamos agendar a visita.` + avisoTempo + obterLink(id),
-    parente_proximo: (criança, id) => `Entendido! 😊 Informamos que o material fotográfico da formatura da(o) ${criança} já está disponível e ficou maravilhoso. Caso você não seja o responsável direto, pedimos a gentileza de encaminhar esta mensagem a ele(a).` + avisoBrinde + avisoTempo + obterLink(id),
+    parente_proximo: (criança, id) => obterLink(id) + `Entendido! 😊 Informamos que o material fotográfico da formatura da(o) ${criança} já está disponível e ficou maravilhoso. Caso você não seja o responsável direto, pedimos a gentileza de encaminhar esta mensagem a ele(a).` + avisoBrinde + avisoTempo,
 
-    // duvida_quem: (escola, id) => `Olá 😊\n\nSomos da equipe oficial de fotografia da formatura da Escola ${escola}.\n\nEste canal serve para identificar os formandos e agendar as visitas de entrega.` + avisoTempo + obterLink(id),
-    duvida_quem: (escola, id) => `Olá 😊\n\nSomos da equipe oficial de fotografia da formatura da Escola ${escola}.\n\nEste canal serve para identificar os formandos e agendar as visitas de entrega.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_quem: (escola, id) => obterLink(id) + `Olá 😊\n\nSomos da equipe oficial de fotografia da formatura da Escola ${escola}.\n\nEste canal serve para identificar os formandos e agendar as visitas de entrega.` + avisoBrinde + avisoTempo,
     
-    // duvida_motivo: (escola, id) => `Estamos entrando em contato para apresentar o material pronto da formatura da Escola ${escola} 📸\n\nAgendamos as visitas para que você veja as fotos pessoalmente e sem compromisso.` + avisoTempo + obterLink(id),
-    duvida_motivo: (escola, id) => `Estamos entrando em contato para apresentar o material pronto da formatura da Escola ${escola} 📸\n\nAgendamos as visitas para que você veja as fotos pessoalmente e sem compromisso.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_motivo: (escola, id) => obterLink(id) + `Estamos entrando em contato para apresentar o material pronto da formatura da Escola ${escola} 📸\n\nAgendamos as visitas para que você veja as fotos pessoalmente e sem compromisso.` + avisoBrinde + avisoTempo,
     
-    // duvida_preco: (id) => `🤖 Como sou um assistente virtual, eu **não consigo informar valores, mas fique tranquilo(a)!** 😊 Os valores são acessíveis e temos condições de pagamento incríveis que cabem no seu bolso 😊. O representante explicará tudo detalhadamente na visita, que é totalmente sem compromisso!` + avisoTempo + obterLink(id),
-    duvida_preco: (id) => `🤖 Como sou um assistente virtual, eu **não consigo informar valores, mas fique tranquilo(a)!** 😊 Os valores são acessíveis e temos condições de pagamento incríveis que cabem no seu bolso 😊. O representante explicará tudo detalhadamente na visita, que é totalmente sem compromisso!` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_preco: (id) => obterLink(id) + `🤖 Como sou um assistente virtual, eu **não consigo informar valores, mas fique tranquilo(a)!** 😊 Os valores são acessíveis e temos condições de pagamento incríveis que cabem no seu bolso 😊. O representante explicará tudo detalhadamente na visita!` + avisoBrinde + avisoTempo,
     
-    // duvida_financeiro: (id) => `Fique tranquilo(a)! 😊 Nosso objetivo é que você conheça esse trabalho maravilhoso. Temos condições especiais para quem está desempregado ou com restrições. Agende sua visita sem compromisso e converse com nosso representante!` + avisoTempo + obterLink(id),
-    duvida_financeiro: (id) => `Fique tranquilo(a)! 😊 Nosso objetivo é que você conheça esse trabalho maravilhoso. Temos condições especiais para quem está desempregado ou com restrições. Agende sua visita sem compromisso e converse com nosso representante!` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_financeiro: (id) => obterLink(id) + `Fique tranquilo(a)! 😊 Nosso objetivo é que você conheça esse trabalho maravilhoso. Temos condições especiais para quem está desempregado ou com restrições. Agende sua visita sem compromisso!` + avisoBrinde + avisoTempo,
 
-    // duvida_nome_sujo: (id) => `Fique tranquila/o, restrição de SPC não é um impedimento para você adquirir esta lembrança maravilhosa. 😊 Pode agendar a visita que nosso representante irá esclarecer todas as suas dúvidas e com certeza, você só não vai adquirir se não gostar das fotos, caso contrário, daremos um jeito.` + avisoTempo + obterLink(id),
-    duvida_nome_sujo: (id) => `Fique tranquila/o, restrição de SPC não é um impedimento para você adquirir esta lembrança maravilhosa. 😊 Pode agendar a visita que nosso representante irá esclarecer todas as suas dúvidas!` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_nome_sujo: (id) => obterLink(id) + `Fique tranquila/o, restrição de SPC não é um impedimento para você adquirir esta lembrança maravilhosa. 😊 Pode agendar a visita que nosso representante irá esclarecer todas as suas dúvidas!` + avisoBrinde + avisoTempo,
 
-    // duvida_limite_cartao: (id) => `Fique tranquilo! 😊 A falta de limite no cartão ou até mesmo a falta de cartão de crédito ou restrição no nome, não é um impedimento para adquirir essa lembrança maravilhosa. Pode agendar a visita tranquila/o que daremos um jeito!` + avisoTempo + obterLink(id),
-    duvida_limite_cartao: (id) => `Fique tranquilo! 😊 A falta de limite no cartão ou até mesmo a falta de cartão de crédito ou restrição no nome, não é um impedimento para adquirir essa lembrança maravilhosa.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_limite_cartao: (id) => obterLink(id) + `Fique tranquilo! 😊 A falta de limite no cartão ou até mesmo a falta de cartão de crédito ou restrição no nome, não é um impedimento para adquirir essa lembrança maravilhosa.` + avisoBrinde + avisoTempo,
 
-    // duvida_entrada: (id) => `Fique tranquila/o quanto a isso. 😊 As condições de pagamentos são pensadas para te ajudar a conseguir adquirir o material. Caso não tenha um valor para entrada, isso não será um impedimento para a aquisição do material. Pode agendar a visita que será um prazer lhe atender.` + avisoTempo + obterLink(id),
-    duvida_entrada: (id) => `Fique tranquila/o quanto a isso. 😊 As condições de pagamentos são pensadas para te ajudar a conseguir adquirir o material. Caso não tenha um valor para entrada, isso não será um impedimento.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_entrada: (id) => obterLink(id) + `Fique tranquila/o quanto a isso. 😊 As condições de pagamentos são pensadas para te ajudar a conseguir adquirir o material. Caso não tenha um valor para entrada, isso não será um impedimento.` + avisoBrinde + avisoTempo,
 
-    // duvida_avulsa: (id) => `Sobre fotos avulsas e outros formatos, o representante apresentará todas as possibilidades e detalhes pessoalmente durante a visita 😊. Você vai amar o material!` + avisoTempo + obterLink(id),
-    duvida_avulsa: (id) => `Sobre fotos avulsas e outros formatos, o representante apresentará todas as possibilidades e detalhes pessoalmente durante a visita 😊.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_avulsa: (id) => obterLink(id) + `Sobre fotos avulsas e outros formatos, o representante apresentará todas as possibilidades e detalhes pessoalmente durante a visita 😊.` + avisoBrinde + avisoTempo,
 
-    // duvida_viajando: (id) => `Sem problemas! 😊 Caso você não esteja na cidade ou não esteja mais morando nela, teria algum parente ou amigo próximo que poderia receber nosso representante para ver esse material por você?` + avisoTempo + obterLink(id),
-    duvida_viajando: (id) => `Sem problemas! 😊 Caso você não esteja na cidade, teria algum parente ou amigo próximo que poderia receber nosso representante para ver esse material por você?` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_viajando: (id) => obterLink(id) + `Sem problemas! 😊 Caso você não esteja na cidade, teria algum parente ou amigo próximo que poderia receber nosso representante para ver esse material por você?` + avisoBrinde + avisoTempo,
 
-    // duvida_tempo: (id) => `Nós temos horários bem flexíveis para te atender! 😊 Atendemos de segunda a sexta das 09:00h às 23:30h, e nos finais de semana das 09:00h às 17:00h. Escolha o melhor momento no link:` + avisoTempo + obterLink(id),
-    duvida_tempo: (id) => `Nós temos horários bem flexíveis para te atender! 😊 Atendemos de segunda a sexta das 09:00h às 23:30h, e nos finais de semana das 09:00h às 17:00h.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_tempo: (id) => obterLink(id) + `Nós temos horários bem flexíveis para te atender! 😊 Atendemos de segunda a sexta das 09:00h às 23:30h, e nos finais de semana das 09:00h às 17:00h.` + avisoBrinde + avisoTempo,
 
-    // duvida_nao_comprar: (id) => `Se não houver interesse na compra, as fotos são destruídas e os arquivos apagados para garantir a total privacidade da sua família 😊. Mas temos certeza que encontraremos uma forma de você ficar com essa lembrança maravilhosa!` + avisoTempo + obterLink(id),
-    duvida_nao_comprar: (id) => `Se não houver interesse na compra, as fotos são destruídas e os arquivos apagados para garantir a total privacidade da sua família 😊.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_nao_comprar: (id) => obterLink(id) + `Se não houver interesse na compra, as fotos são destruídas e os arquivos apagados para garantir a total privacidade da sua família 😊.` + avisoBrinde + avisoTempo,
 
-    // duvida_origem_fone: (id) => `Os dados foram fornecidos pelos próprios alunos através de uma ficha de cadastro, autorizada pela direção da escola, para facilitar a entrega das fotos de formatura 😊.` + avisoTempo + obterLink(id),
-    duvida_origem_fone: (id) => `Os dados foram fornecidos pelos próprios alunos através de uma ficha de cadastro, autorizada pela direção da escola, para facilitar a entrega das fotos.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_origem_fone: (id) => obterLink(id) + `Os dados foram fornecidos pelos próprios alunos através de uma ficha de cadastro, autorizada pela direção da escola, para facilitar a entrega das fotos.` + avisoBrinde + avisoTempo,
 
-    // conhece_mas_nao_responsavel: (id) => `Entendi! 😊 Poderia, por gentileza, encaminhar esta mensagem para o responsável? Assim ele consegue agendar um horário para conhecer o material das fotos.` + avisoTempo + obterLink(id),
-    conhece_mas_nao_responsavel: (id) => `Entendi! 😊 Poderia, por gentileza, encaminhar esta mensagem para o responsável? Assim ele consegue agendar um horário para conhecer o material.` + avisoBrinde + avisoTempo + obterLink(id),
+    conhece_mas_nao_responsavel: (id) => obterLink(id) + `Entendi! 😊 Poderia, por gentileza, encaminhar esta mensagem para o responsável? Assim ele consegue agendar um horário para conhecer o material.` + avisoBrinde + avisoTempo,
 
-    // duvida_agendamento: (id) => `O agendamento é rápido! Basta escolher o melhor horário no link abaixo para receber nosso representante.` + avisoTempo + obterLink(id),
-    duvida_agendamento: (id) => `O agendamento é rápido! Basta escolher o melhor horário no link abaixo para receber nosso representante.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_agendamento: (id) => obterLink(id) + `O agendamento é rápido! Basta escolher o melhor horário no link acima para receber nosso representante.` + avisoBrinde + avisoTempo,
     
-    // duvida_local: (id) => `O representante vai até o seu endereço para apresentar o material com todo conforto e segurança 😊.` + avisoTempo + obterLink(id),
-    duvida_local: (id) => `O representante vai até o seu endereço para apresentar o material com todo conforto e segurança 😊.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_local: (id) => obterLink(id) + `O representante vai até o seu endereço para apresentar o material com todo conforto e segurança 😊.` + avisoBrinde + avisoTempo,
     
-    // seguranca: (escola, id) => `Sim, pode confiar! 😊 Somos a equipe oficial de formatura da Escola ${escola}. A visita serve apenas para você conhecer o material, sem compromisso de compra!` + avisoTempo + obterLink(id),
-    seguranca: (escola, id) => `Sim, pode confiar! 😊 Somos a equipe oficial de formatura da Escola ${escola}. A visita serve apenas para você conhecer o material!` + avisoBrinde + avisoTempo + obterLink(id),
+    seguranca: (escola, id) => obterLink(id) + `Sim, pode confiar! 😊 Somos a equipe oficial de formatura da Escola ${escola}. A visita serve apenas para você conhecer o material!` + avisoBrinde + avisoTempo,
 
-    // duvida_qualidade_digital: (id) => `Entendo perfeitamente! 😊 Por questões de segurança e para você apreciar a alta resolução e o acabamento do material físico, o representante leva o álbum completo até você. Ver as fotos em mãos é uma experiência totalmente diferente! Aproveite para tirar suas dúvidas e ver a qualidade pessoalmente.` + avisoTempo + obterLink(id),
-    duvida_qualidade_digital: (id) => `Entendo perfeitamente! 😊 Por questões de segurança e para você apreciar a alta resolução, o representante leva o álbum completo até você.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_qualidade_digital: (id) => obterLink(id) + `Entendo perfeitamente! 😊 Por questões de segurança e para você apreciar a alta resolução, o representante leva o álbum completo até você.` + avisoBrinde + avisoTempo,
 
-    // duvida_local_reuniao: (id) => `Sem problemas! 😊 Nosso representante pode te encontrar onde for mais confortável e seguro para você: seja na sua residência, no seu local de trabalho ou até em um local público de sua preferência. O importante é você ver esse material!` + avisoTempo + obterLink(id),
-    duvida_local_reuniao: (id) => `Sem problemas! 😊 Nosso representante pode te encontrar onde for mais confortável para você: residência, trabalho ou local público.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_local_reuniao: (id) => obterLink(id) + `Sem problemas! 😊 Nosso representante pode te encontrar onde for mais confortável para você: residência, trabalho ou local público.` + avisoBrinde + avisoTempo,
 
-    // ja_tem_fotos: (escola, id) => `Que bom que você valoriza essas memórias! 😊 No entanto, este material que estamos entregando agora é o *oficial e exclusivo* da formatura da Escola ${escola}, com fotos únicas que você ainda não viu. Vale a pena conferir sem compromisso, pois o trabalho ficou realmente especial!` + avisoTempo + obterLink(id),
-    ja_tem_fotos: (escola, id) => `Que bom que você valoriza essas memórias! 😊 No entanto, este material é o *oficial e exclusivo* da formatura da Escola ${escola}.` + avisoBrinde + avisoTempo + obterLink(id),
+    ja_tem_fotos: (escola, id) => obterLink(id) + `Que bom que você valoriza essas memórias! 😊 No entanto, este material é o *oficial e exclusivo* da formatura da Escola ${escola}.` + avisoBrinde + avisoTempo,
 
-    // duvida_decisao_hora: (id) => `Fique super tranquilo(a)! 😊 A visita é justamente para você conhecer o material com calma. O representante vai te apresentar todas as opções e você decide o que for melhor para sua família. Nosso foco é que você veja o resultado desse momento tão importante!` + avisoTempo + obterLink(id),
-    duvida_decisao_hora: (id) => `Fique super tranquilo(a)! 😊 A visita é justamente para você conhecer o material com calma e decidir o que for melhor para sua família.` + avisoBrinde + avisoTempo + obterLink(id),
+    duvida_decisao_hora: (id) => obterLink(id) + `Fique super tranquilo(a)! 😊 A visita é justamente para você conhecer o material com calma e decidir o que for melhor para sua família.` + avisoBrinde + avisoTempo,
     
-    // audio: (id) => `Olá! 🤖 Como sou um assistente virtual, eu **não consigo ouvir áudios**. \n\nComo estaremos na cidade por *poucos dias*, por favor, use o link para garantir seu horário:` + obterLink(id),
-    audio: (id) => `Olá! 🤖 Como sou um assistente virtual, eu **não consigo ouvir áudios**.\n\nLembrando que:` + avisoBrinde + avisoTempo + obterLink(id),
+    audio: (id) => `Olá! 🤖 Como sou um assistente virtual, eu **não consigo ouvir áudios**.\n\nLembrando que:\n\n` + obterLink(id) + avisoBrinde + avisoTempo,
 
-    remover: (id) => `Entendemos. Estaremos excluindo seu contato do nosso cadastro. As fotos serão destruídas e descartadas e os arquivos apagados para garantir a total privacidade da sua família 😊. Se mudar de idéia nos próximos dias estaremos á disposição!` + avisoTempo + obterLink(id),
+    remover: (id) => `Entendemos. Estaremos excluindo seu contato do nosso cadastro. As fotos serão destruídas e descartadas e os arquivos apagados para garantir a total privacidade da sua família 😊. Se mudar de idéia nos próximos dias estaremos á disposição!` + avisoTempo,
 
     desculpas: () => `Obrigado pelo retorno 👍\n\nVamos registrar e corrigir nosso contato. Pedimos desculpas pelo inconveniente e agradecemos sua atenção 😊`,
 
-    // fallback: (id) => `Olá! 😊 Como sou um assistente virtual, não consegui entender sua dúvida específica agora.\n\nMas fique tranquilo(a): todos os detalhes e dúvidas técnicas serão esclarecidos pelo representante durante a **visita (totalmente sem compromisso)**.` + avisoTempo + obterLink(id)
-    fallback: (id) => `Olá! 😊 Como sou um assistente virtual, não consegui entender sua dúvida específica agora.\n\nMas fique tranquilo(a): todos os detalhes serão esclarecidos pelo representante.` + avisoBrinde + avisoTempo + obterLink(id)
+    fallback: (id) => obterLink(id) + `Olá! 😊 Como sou um assistente virtual, não consegui entender sua dúvida específica agora.\n\nMas fique tranquilo(a): todos os detalhes serão esclarecidos pelo representante.` + avisoBrinde + avisoTempo
 };
 
 // ===============================
@@ -287,9 +259,6 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
 
         let respostaFinal = "";
 
-        // ===============================
-        // 🧠 LÓGICA DE INTELIGÊNCIA (PALAVRAS-CHAVE)
-        // ===============================
         if (tipo === "audio") {
             respostaFinal = respostasElite.audio(projeto_id);
         } else if (txt.includes("não quero") || txt.includes("nao quero") || txt.includes("remover") || txt.includes("pare") || txt.includes("não tenho interesse") || txt.includes("nao tenho interesse")) {
@@ -334,14 +303,12 @@ async function processarMensagemRecebida(from, texto, tipo = "text") {
             respostaFinal = respostasElite.fallback(projeto_id);
         }
 
-        // SALVA MENSAGEM DO CLIENTE
         await set(ref(db, `respostas/${usuarioDono}/${numero}/${Date.now()}`), {
             mensagem: tipo === "audio" ? "[ÁUDIO ENVIADO]" : texto,
             tipo: "CLIENTE",
             data: new Date().toLocaleString('pt-BR')
         });
 
-        // BOT RESPONDE
         await enviarMensagemMeta(numero, respostaFinal, "text", usuarioDono);
 
     } catch (e) {
